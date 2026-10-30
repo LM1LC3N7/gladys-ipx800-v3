@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-30
+
 ### Added
 
 - First version: the GCE IPX800 V3 over its local HTTP interface
@@ -33,3 +35,6 @@ the notes of the version's GitHub Release.
 - The "not ready" answer of a V3 (every analog 0, `dnsstatus` pending) is not
   a reading; the same address in two slots is refused; ids of an unknown slot
   get a plain refusal.
+
+[Unreleased]: https://github.com/LM1LC3N7/gladys-ipx800-v3/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-ipx800-v3/releases/tag/v0.1.1
