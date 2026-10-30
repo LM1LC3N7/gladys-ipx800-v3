@@ -232,3 +232,10 @@ everything off" would switch on).
   minute on 429 / 503, the pause in `/data`.
 - **Units**: °C and % only (core list). Category `lighting` only.
 - **Not in the manifest**: `keywords` and `countries` (need Gladys 5.3.0).
+
+## Next patch (review r2, a0c3ded)
+
+- m1: `T.notAttached` still says "none of their commands is sent / state lost" with an unknown owner and writable /data (Offs do go out) and on a fresh install before the first read; the status starts with "Connected…" when /data cannot be written.
+- m2: ask cce66 (Q8) whether `dnsstatus` stays "pending" in normal use without Internet; if so the all-zero rejection would block every read. Consider also requiring every relay at 0. Mutant N8 survives.
+- m3: tests for N18 (held Off lost when /data reads again), N10 (Rattacher marked done when its save failed), N15 (duplicate slot), N16 (TypeError on `ipx4:`).
+- m4: P4 and P5 are equivalent belts (proved by execution); keep them with a comment.
