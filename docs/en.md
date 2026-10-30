@@ -97,8 +97,20 @@ Put the old address back then. If it is **the same IPX800 at a new
 address**, click "Attach the devices" **twice** (within a minute), choosing
 the slot: its devices then drive the IPX800 read at this address, with the
 slot's list of relays. A slot without any created device simply takes the
-IPX800 it reads. If the state in `/data` is lost while devices exist,
-nothing is sent to them until they are attached (two clicks).
+IPX800 it reads.
+
+When `/data` does not tell which IPX800 the devices belong to (file
+deleted, `/data` never writable, unreadable right now, damaged), switching a
+listed relay off still goes, to the address typed (the identity of a V3);
+switching on waits for "Attach the devices" (two clicks), which is made only
+when `/data` can write it (it would be forgotten at the next restart
+otherwise, and the integration says so). A damaged file (not readable as
+ours) is written again by that attachment; a `/data` that cannot be read
+right now never is. Once `/data` reads again, the integration takes what it
+says.
+
+One IPX800 (one address and port) goes in one slot only: a second slot at
+the same address is neither read nor driven, and the status says so.
 
 Limit: another IPX800 V3 put **at the same address and port** is not told
 apart from the first one.
@@ -118,8 +130,9 @@ in Gladys (without effect): Gladys does not delete a single feature; only
 deleting the device, then creating it again, removes it, with its history.
 
 A relay is written through `preset.htm` (on or off, an absolute value),
-never by a toggle. A relay set to pulse mode on the IPX800 (Ta / Tb delays)
-was not tried: do not list it until this is checked.
+never by a toggle. **Do not list a relay set to pulse mode on the IPX800**
+(Ta / Tb delays: a gate, a door strike): `preset.htm` likely does not start
+the pulse, the relay would stay on. This is not checked.
 
 ## Switching off a listed relay
 
@@ -138,9 +151,9 @@ It is refused only when:
 - the value is neither 0 nor 1;
 - the relay is not known (its number is not in the last answer of the
   IPX800);
-- the IPX800 is not the one of the device, or nothing tells (see "Each
-  IPX800 keeps its devices"; when `/data` cannot be read, it goes to the
-  address typed).
+- `/data` says the devices are those of another address (see "Each IPX800
+  keeps its devices");
+- the slot has the address of an earlier slot.
 
 Clicked before the configuration is read from Gladys (the password is kept
 there only, never in `/data`), it asks Gladys for it at once and waits 3 s;
@@ -148,12 +161,17 @@ if it has not come, it is kept in memory and sent as soon as the
 configuration is read (read again every 5 s while a switch-off waits),
 before anything goes to Gladys; if the relay turns out unknown or not
 listed, the status says so. A switch-off kept in `/data` leaves at start the
-same way, without waiting for Gladys. When the IPX800 does not take it
-within 3.5 s (no connection), it is kept and sent again as soon as the
-IPX800 is free, before the read backs, by the next reads that show the
-relay on, and after a restart; a switch-off that never left is never given
-up (only a send counts as a try). A resend cut by a click before it left
-goes again right behind that click.
+same way, as soon as the configuration (the address) is read from Gladys,
+before the first read and before anything goes to Gladys. When the IPX800
+does not take it within 3.5 s (no connection), it is kept and sent again as
+soon as the IPX800 is free, before the read backs, by the next reads that
+show the relay on, after new credentials (even when `/data` does not write)
+and after a restart (when `/data` could write it). A switch-off that never
+left is dropped only when the relay leaves the list or the slot moves to
+another address (only a send counts as a try). A resend cut by a click
+before it left goes again right behind that click. A `/data` that does not
+answer (a frozen disk) is waited for 1.5 s at most: neither the switch-off
+nor the reads wait for it longer, and the status says so.
 
 A switch-off the reads do not show is sent again, 3 times at most (three
 sends that left); then the status says so (check on site). It stays held
@@ -177,6 +195,11 @@ are written one after the other, then read back once. One request at a time
 goes to the IPX800.
 
 ## Pauses and refusals
+
+An answer where every analog input is 0 and `dnsstatus` says `pending` (an
+IPX800 V3 not ready yet, seen by the Home Assistant integration) is no
+reading: nothing of it is published, no switch-off is confirmed nor lifted
+by it, and it counts as a failed read.
 
 A failed read pauses 10 s, 30 s, 1 min, 2 min then 5 min (a minute at least
 when the IPX800 answers 429 or 503), the pause kept across restarts;

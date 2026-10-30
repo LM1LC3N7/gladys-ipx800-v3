@@ -52,5 +52,6 @@ test('real clock x20: one round per interval (measured), a command confirmed', a
   assert.equal(ipx.state.led[0], 0);
   assert.equal(gladys.fake.connectionStatus.connected, true);
   app.stop();
-  assert.ok(clock.timersSet < 40, `${clock.timersSet} timers`);
+  // Bounded: the rounds, the commands, and one cleared bound per /data read or save.
+  assert.ok(clock.timersSet < 80, `${clock.timersSet} timers`);
 });

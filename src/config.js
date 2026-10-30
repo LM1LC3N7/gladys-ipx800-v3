@@ -201,6 +201,8 @@ export function normalizeConfig(raw = {}) {
     relayErrors: relays.errors,
     extensions: extensions.codes,
     extensionErrors: extensions.errors,
+    // Set by src/hub.js: the address of an earlier slot (one IPX800, one lane of requests).
+    duplicateOf: Number.isInteger(raw?.duplicate_of) ? raw.duplicate_of : undefined,
     pollInterval: clamp(number(raw?.poll_interval), POLL_INTERVAL, DEFAULTS.poll_interval),
     language: LANGUAGES.includes(language) ? language : DEFAULTS.language,
   };
@@ -227,6 +229,27 @@ export function slotConfig(raw, slot) {
   return out;
 }
 
+/**
+ * The configuration of each slot; a slot whose address and port are those of an earlier slot
+ * gets `duplicate_of`: it is not read nor driven (two lanes would hit one IPX800, and its
+ * relays would answer to two devices).
+ */
+export function slotConfigs(raw, slots = SLOTS) {
+  const seen = new Map();
+  const out = new Map();
+  for (let slot = 1; slot <= slots; slot += 1) {
+    const config = slotConfig(raw, slot);
+    const { key } = normalizeConfig(config);
+    if (key && seen.has(key)) {
+      out.set(slot, { ...config, duplicate_of: seen.get(key) });
+    } else {
+      if (key) seen.set(key, slot);
+      out.set(slot, config);
+    }
+  }
+  return out;
+}
+
 /** True when a slot after the first one has an address, a user or a password typed. */
 export const slotTyped = (raw, slot) =>
   slot === 1 ||
@@ -244,4 +267,11 @@ export const credentialsOf = (config) =>
 
 /** What a session depends on: a change starts again (and lifts refused credentials). */
 export const sessionKey = (config) =>
-  JSON.stringify([config.host, config.port, config.user, config.password, config.addressError]);
+  JSON.stringify([
+    config.host,
+    config.port,
+    config.user,
+    config.password,
+    config.addressError,
+    config.duplicateOf,
+  ]);

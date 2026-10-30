@@ -24,3 +24,12 @@ the notes of the version's GitHub Release.
 - Up to three IPX800 V3, each keeping its devices (by address and port);
   "Attach the devices" (two clicks) after a change of address.
 - "Test the connection"; guides in English and French.
+- A `/data` that does not answer (a frozen disk) is waited for 1.5 s at most:
+  the reads, the test button and the switch-offs go on, the status says it.
+- When `/data` does not tell which IPX800 the devices belong to (deleted,
+  never writable, unreadable, damaged), switching a listed relay off goes to
+  the address typed; "Attach the devices" also writes a damaged state file
+  again.
+- The "not ready" answer of a V3 (every analog 0, `dnsstatus` pending) is not
+  a reading; the same address in two slots is refused; ids of an unknown slot
+  get a plain refusal.

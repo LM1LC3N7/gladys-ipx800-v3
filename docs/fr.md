@@ -106,8 +106,21 @@ nouvelle adresse**, cliquez **deux fois** « Rattacher les appareils » (dans
 la minute), en choisissant l’emplacement : ses appareils pilotent alors
 l’IPX800 lu à cette adresse, avec la liste de relais pilotables de
 l’emplacement. Un emplacement sans aucun appareil créé prend simplement
-l’IPX800 qu’il lit. Si l’état de `/data` est perdu alors que des appareils
-existent, rien ne leur est envoyé jusqu’au rattachement (deux clics).
+l’IPX800 qu’il lit.
+
+Si `/data` ne dit pas à quel IPX800 appartiennent les appareils (fichier
+supprimé, `/data` jamais inscriptible, illisible en ce moment, abîmé),
+l’extinction d’un relais listé part quand même, vers l’adresse saisie (qui
+est l’identité d’une V3) ; l’allumage attend « Rattacher les appareils »
+(deux clics), qui n’est fait que si `/data` peut l’écrire (sinon il serait
+oublié au redémarrage, et l’intégration le dit). Un fichier abîmé (illisible
+comme le nôtre) est réécrit par ce rattachement ; un `/data` qui ne se lit
+pas en ce moment ne l’est jamais. Quand `/data` se relit, l’intégration
+reprend ce qu’il dit.
+
+Un même IPX800 (même adresse et même port) ne va que dans un emplacement : un
+second emplacement à la même adresse n’est ni lu ni piloté, et l’état le
+dit.
 
 Limite : un autre IPX800 V3 mis **à la même adresse et au même port** ne se
 distingue pas du premier.
@@ -129,9 +142,10 @@ supprime pas une fonctionnalité seule ; seule la suppression de l’appareil,
 puis sa recréation, l’enlève, avec son historique.
 
 Un relais est écrit par `preset.htm` (allumé ou éteint, une valeur
-absolue), jamais par une inversion. Un relais réglé en mode impulsion sur
-l’IPX800 (délais Ta / Tb) n’a pas été essayé : ne le listez pas avant que ce
-soit vérifié.
+absolue), jamais par une inversion. **Ne listez pas un relais réglé en mode
+impulsion sur l’IPX800** (délais Ta / Tb : un portail, une gâche) :
+`preset.htm` ne lance sans doute pas l’impulsion, le relais resterait collé.
+Ce n’est pas vérifié.
 
 ## L’extinction d’un relais listé
 
@@ -151,9 +165,9 @@ Elle n’est refusée que si :
 - la valeur n’est ni 0 ni 1 ;
 - le relais n’est pas connu (son numéro n’existe pas dans la dernière
   réponse de l’IPX800) ;
-- l’IPX800 n’est pas celui de l’appareil, ou rien ne permet de le savoir
-  (voir « Chaque IPX800 garde ses appareils » ; si `/data` est illisible,
-  elle part vers l’adresse saisie).
+- `/data` dit que les appareils sont ceux d’une autre adresse (voir
+  « Chaque IPX800 garde ses appareils ») ;
+- l’emplacement a la même adresse qu’un emplacement précédent.
 
 Cliquée avant que la configuration soit lue dans Gladys (le mot de passe
 n’est gardé que là, jamais dans `/data`), elle la demande aussitôt à Gladys
@@ -161,13 +175,18 @@ et attend 3 s ; si elle n’est pas venue, elle est gardée en mémoire et
 envoyée dès que la configuration est lue (relue toutes les 5 s tant qu’une
 extinction attend), avant tout envoi vers Gladys ; si le relais s’avère
 inconnu ou non listé, l’état le dit. Une extinction gardée dans `/data` part
-de même au démarrage, sans attendre Gladys. Quand l’IPX800 ne la prend pas
-dans les 3,5 s (pas de connexion), elle est gardée et renvoyée dès que
-l’IPX800 est libre, avant les relectures, par les lectures suivantes qui
-montrent le relais allumé, et après un redémarrage ; une extinction qui
-n’est jamais partie n’est jamais abandonnée (seul un envoi compte comme un
-essai). Un renvoi interrompu par un clic avant d’être parti repart juste
-derrière ce clic.
+de même au démarrage, dès que la configuration (l’adresse) est lue dans
+Gladys, avant la première lecture et avant tout envoi vers Gladys. Quand
+l’IPX800 ne la prend pas dans les 3,5 s (pas de connexion), elle est gardée
+et renvoyée dès que l’IPX800 est libre, avant les relectures, par les
+lectures suivantes qui montrent le relais allumé, après de nouveaux
+identifiants (même si `/data` ne s’écrit pas) et après un redémarrage (si
+`/data` a pu l’écrire). Une extinction qui n’est jamais partie n’est
+abandonnée que si le relais quitte la liste ou que l’emplacement passe à une
+autre adresse (seul un envoi compte comme un essai). Un renvoi interrompu par
+un clic avant d’être parti repart juste derrière ce clic. Un `/data` qui ne
+répond pas (disque figé) n’est attendu que 1,5 s : ni l’extinction, ni les
+lectures ne l’attendent plus, et l’état le dit.
 
 Une extinction que les lectures ne montrent pas est renvoyée, 3 fois au plus
 (trois envois partis) ; puis l’état le dit (vérifiez sur place). Elle reste
@@ -192,6 +211,11 @@ temps donne « envoyée, sans confirmation ». Deux lectures suivent, 5 s et
 relues une fois. Une seule requête part à la fois vers l’IPX800.
 
 ## Pauses et refus
+
+Une réponse où toutes les entrées analogiques valent 0 et `dnsstatus` dit
+`pending` (un IPX800 V3 pas encore prêt, vu par l’intégration Home
+Assistant) n’est pas une lecture : rien n’en est publié, aucune extinction
+n’est confirmée ni levée par elle, et elle compte comme une lecture en échec.
 
 Une lecture en échec met en pause 10 s, 30 s, 1 min, 2 min puis 5 min (une
 minute au moins quand l’IPX800 répond 429 ou 503), pause gardée au

@@ -108,6 +108,11 @@ export function reasonOf(err) {
       return both('answer too large', 'réponse trop grande');
     case 'not_success':
       return both('the IPX800 answered an error', 'l’IPX800 a répondu une erreur');
+    case 'pending':
+      return both(
+        'its status page is not ready yet (all values 0, dnsstatus pending)',
+        'sa page d’état n’est pas encore prête (tout à 0, dnsstatus pending)',
+      );
     case 'bad_response':
       return both('not an IPX800 V3 answer', 'pas une réponse d’IPX800 V3');
     default:
@@ -238,9 +243,22 @@ export const T = {
       `Rien ne dit que les appareils de l’IPX800 n°${slot} appartiennent à l’IPX800 lu (l’état de /data a été perdu) : aucune de leurs commandes n’est envoyée. Si ce sont les siens, cliquez deux fois « Rattacher les appareils ».`,
     ),
   ownerUnreadable: both(
-    'The state in /data cannot be read: which IPX800 the devices belong to is unknown, only switch-offs are sent until it can.',
-    'L’état de /data ne peut pas être lu : on ne sait pas à quel IPX800 appartiennent les appareils, seules les extinctions sont envoyées d’ici là.',
+    'The state in /data cannot be read now: which IPX800 the devices belong to is unknown. Only switch-offs are sent, to the address typed, until it reads again.',
+    'L’état de /data ne peut pas être lu en ce moment : on ne sait pas à quel IPX800 appartiennent les appareils. Seules les extinctions sont envoyées, à l’adresse saisie, jusqu’à ce qu’il se relise.',
   ),
+  ownerCorrupt: both(
+    'The state file in /data is damaged (not readable as ours): which IPX800 the devices belong to is unknown. Only switch-offs are sent, to the address typed. If the devices are those of the IPX800 at this address, click "Attach the devices" twice: the file is written again.',
+    'Le fichier d’état de /data est abîmé (illisible) : on ne sait pas à quel IPX800 appartiennent les appareils. Seules les extinctions sont envoyées, à l’adresse saisie. Si les appareils sont ceux de l’IPX800 à cette adresse, cliquez deux fois « Rattacher les appareils » : le fichier est réécrit.',
+  ),
+  ownerUnwritable: both(
+    'The state cannot be written to /data and holds nothing yet: which IPX800 the devices belong to is unknown. Only switch-offs are sent, to the address typed, until /data can be written.',
+    'L’état ne peut pas être écrit dans /data, qui ne contient encore rien : on ne sait pas à quel IPX800 appartiennent les appareils. Seules les extinctions sont envoyées, à l’adresse saisie, tant que /data ne peut pas être écrit.',
+  ),
+  duplicateSlot: (other) =>
+    both(
+      `Same address as IPX800 #${other}: an IPX800 goes in one slot only. This one is not read and drives nothing; empty its address.`,
+      `Même adresse que l’IPX800 n°${other} : un IPX800 ne va que dans un emplacement. Celui-ci n’est pas lu et ne pilote rien ; videz son adresse.`,
+    ),
   attach: {
     notRead: both(
       'No IPX800 read right now: click "Test the connection" first.',
@@ -251,11 +269,19 @@ export const T = {
         `The devices of IPX800 #${slot} already belong to the IPX800 read: nothing to do.`,
         `Les appareils de l’IPX800 n°${slot} appartiennent déjà à l’IPX800 lu : rien à faire.`,
       ),
-    confirm: (slot, count) =>
+    confirm: (slot, address, count, rewrite) =>
       both(
-        `Click again within a minute to attach the ${count} device(s) of IPX800 #${slot} to the IPX800 V3 read now at this address: its relays listed in the configuration will obey them.`,
-        `Cliquez à nouveau dans la minute pour rattacher les ${count} appareil(s) de l’IPX800 n°${slot} à l’IPX800 V3 lu en ce moment à cette adresse : ses relais listés dans la configuration leur obéiront.`,
+        `Click again within a minute to attach the ${count} device(s) of IPX800 #${slot} to the IPX800 V3 read now at ${address}: its relays listed in the configuration will obey them.${rewrite ? ' The damaged state file of /data is written again.' : ''}`,
+        `Cliquez à nouveau dans la minute pour rattacher les ${count} appareil(s) de l’IPX800 n°${slot} à l’IPX800 V3 lu en ce moment à ${address} : ses relais listés dans la configuration leur obéiront.${rewrite ? ' Le fichier d’état abîmé de /data est réécrit.' : ''}`,
       ),
+    unreadable: both(
+      'The state in /data cannot be read right now: try again once it reads (the status says it). Switch-offs still go to the address typed.',
+      'L’état de /data ne peut pas être lu en ce moment : réessayez quand il se relit (l’état le dit). Les extinctions partent quand même vers l’adresse saisie.',
+    ),
+    unwritable: both(
+      'The state cannot be written to /data: the attachment would be forgotten at the next restart, so it is not made. Switch-offs still go to the address typed.',
+      'L’état ne peut pas être écrit dans /data : le rattachement serait oublié au prochain redémarrage, il n’est donc pas fait. Les extinctions partent quand même vers l’adresse saisie.',
+    ),
     done: (slot, count) =>
       both(
         `Done: the ${count} device(s) of IPX800 #${slot} belong to the IPX800 read.`,
@@ -317,6 +343,23 @@ export const ERRORS = {
   keyRefused: both(
     'The IPX800 refused the user or the password: nothing was sent.',
     'L’IPX800 a refusé l’utilisateur ou le mot de passe : rien n’a été envoyé.',
+  ),
+  keyRefusedSent: both(
+    'Sent, but the IPX800 refused the user or the password: nothing was applied.',
+    'Envoyée, mais l’IPX800 a refusé l’utilisateur ou le mot de passe : rien n’a été appliqué.',
+  ),
+  ownerUnknown: both(
+    '/data cannot be read or written: which IPX800 this device belongs to is unknown, only switch-offs are sent (to the address typed). Nothing was sent.',
+    '/data ne peut être ni lu ni écrit : on ne sait pas à quel IPX800 appartient cet appareil, seules les extinctions sont envoyées (à l’adresse saisie). Rien n’a été envoyé.',
+  ),
+  duplicateSlot: (other) =>
+    both(
+      `This IPX800 has the address of IPX800 #${other}: its slot is not used. Nothing was sent.`,
+      `Cet IPX800 a l’adresse de l’IPX800 n°${other} : son emplacement n’est pas utilisé. Rien n’a été envoyé.`,
+    ),
+  keptUntilStart: both(
+    'Not sent yet: the integration is restarting; kept and sent as soon as it has started.',
+    'Pas encore envoyée : l’intégration redémarre ; gardée et envoyée dès son démarrage.',
   ),
   stopPending: both(
     'A switch-off is being sent to this relay: nothing was sent.',

@@ -235,20 +235,25 @@ test('a device deleted: the Discover list again at once, without the switch of t
   app.stop();
 });
 
-test('/data lost (a fresh file) with devices there: not bound to whatever answers, Attach asked', async () => {
+test('/data lost (a fresh file) with devices there: not bound to whatever answers; the switch-off still goes, Attach asked', async () => {
   const device = switchOf('r1');
-  const { app, gladys, store, start, cmd, world } = await setup({
+  const world = fakeIpx();
+  world.state.led[0] = 1;
+  const { app, gladys, store, start, cmd } = await setup({
     config: { ...CONFIG, relays: 'R1' },
     devices: [device],
     fresh: true,
+    world,
   });
   await start();
   assert.equal(store.data.owner, null);
   assert.match(message(gladys), /not known to belong to the IPX800 read/);
-  for (const value of [0, 1]) {
-    assert.equal((await cmd(device, F('relay', 'r1', 'switch'), value)).success, false);
-  }
+  const on = await cmd(device, F('relay', 'r1', 'switch'), 1);
+  assert.equal(on.success, false, 'no switch-on until attached');
   assert.equal(world.writes().length, 0);
+  const off = await cmd(device, F('relay', 'r1', 'switch'), 0);
+  assert.equal(off.success, true, 'the switch-off goes to the address typed');
+  assert.equal(world.state.led[0], 0);
   await gladys.fake.action('attach_devices', { ipx: '1' });
   await gladys.fake.action('attach_devices', { ipx: '1' });
   assert.equal((await cmd(device, F('relay', 'r1', 'switch'), 1)).success, true);

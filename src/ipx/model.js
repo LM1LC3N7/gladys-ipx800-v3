@@ -39,6 +39,22 @@ export function parseXml(body) {
   return { fields };
 }
 
+/**
+ * The answer a V3 gives while it is not ready (seen on a real one, ha_ipx800v3 e90a553): every
+ * analog value 0 and `dnsstatus` "pending"; its other values (relays and inputs at 0) are not
+ * readings. Single source: see TODO.md.
+ */
+export function isPendingAnswer(fields) {
+  let sum = 0;
+  for (const [name, text] of fields) {
+    if (/^analog\d{1,2}$/.test(name) && typeof text === 'string' && /^\d{1,5}$/.test(text)) {
+      sum += Number(text);
+    }
+  }
+  const dns = fields.get('dnsstatus');
+  return sum === 0 && typeof dns === 'string' && dns.toLowerCase().includes('pending');
+}
+
 /** The targets listed: the 8 relays and inputs of the IPX, its 4 analog inputs, the extensions. */
 export function v3Codes(extensions, relays) {
   const codes = new Set();

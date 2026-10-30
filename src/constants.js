@@ -151,6 +151,8 @@ export const TIMINGS = {
   /** A click while the configuration is unread asks for it at once (2 s apart at most) and waits this long. */
   configAskGap: 2 * SECOND,
   configWait: 3 * SECOND,
+  /** A read or a save of /data waited this long at most (a frozen disk holds nothing). */
+  storeWait: 1_500,
   /** "Attach the devices": the second click within this. */
   attachConfirm: MINUTE,
 };

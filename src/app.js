@@ -58,7 +58,15 @@ import { buildDevice, idsOf, parseExternalId, targetStates } from './devices.js'
 import { ERRORS, T, age, both, describe, join, listOf, reasonOf, shownCode, word } from './i18n.js';
 import { IpxClient, PRIORITY } from './ipx/client.js';
 import { IpxError, errorReason } from './ipx/http.js';
-import { numberOf, parseV3, parseXml, v3Codes, v3Kind, v3WriteQuery } from './ipx/model.js';
+import {
+  isPendingAnswer,
+  numberOf,
+  parseV3,
+  parseXml,
+  v3Codes,
+  v3Kind,
+  v3WriteQuery,
+} from './ipx/model.js';
 import { StatePublisher } from './publisher.js';
 import { emptyMemory, fileStore, normalizeMemory } from './store.js';
 
@@ -69,6 +77,9 @@ import { emptyMemory, fileStore, normalizeMemory } from './store.js';
  */
 export const tagOf = (salt, key) =>
   createHash('sha256').update(`${salt}\u0000${key}`, 'utf8').digest()[0];
+
+/** A /data file that reads but is not ours (bad JSON, too large): rewritten only by Attach. */
+const isCorrupt = (err) => err instanceof SyntaxError || err?.message === 'state file too large';
 
 /** A command value from Gladys: an integer (or its plain text); undefined otherwise. */
 function integerOf(value) {
@@ -354,6 +365,10 @@ export class IpxApp {
     this.stop();
     const generation = this.generation;
     await this.running?.catch(() => {});
+    const previousKey = this.config.key;
+    // The switch-offs held in memory for this controller survive a new session (new
+    // credentials, say), even when /data could not keep them.
+    const held = [...this.guards.values()];
     this.config = normalizeConfig(raw);
     this.configLoaded = true;
     this.reset();
@@ -361,17 +376,37 @@ export class IpxApp {
     const mono = this.monotonic();
     let loaded = null;
     this.storeUnreadable = false;
+    this.storeCorrupt = false;
+    this.storeLost = false;
     try {
-      loaded = await this.store.load();
+      // Bounded: a /data that never answers is unreadable, never a start that waits for ever.
+      const answer = await this.bounded(this.store.load());
+      if (answer.late) throw Object.assign(new Error('no answer'), { code: 'timeout' });
+      loaded = answer.value;
     } catch (err) {
       // Not the same as empty: nothing is written over it until it reads again.
       this.storeUnreadable = true;
-      this.logger.warn(`ipx800: /data unreadable (${err?.code ?? 'error'})`);
+      this.storeCorrupt = isCorrupt(err);
+      this.logger.warn(`ipx800: /data unreadable (${err?.code ?? err?.name ?? 'error'})`);
     }
     if (generation !== this.generation) return;
     this.adoptMemory(normalizeMemory(loaded, now), now, mono);
+    if (previousKey === this.config.key) {
+      for (const guard of held) {
+        if (!this.guards.has(guard.code)) {
+          this.guards.set(guard.code, this.makeGuard({ ...guard, inFlight: false }, mono));
+        }
+      }
+      this.dropUnlistedGuards();
+    }
     this.memoryLoaded = true;
     if (!this.memory.salt && !this.storeUnreadable) this.memory.salt = this.random();
+    // No file, devices there, and /data cannot be written (never could, say): the owner of the
+    // devices is not known, as with a file that cannot be read.
+    if (loaded === null && !this.storeUnreadable && this.createdDevices().length > 0) {
+      this.storeLost = !(await this.saveMemory());
+      if (generation !== this.generation) return;
+    }
     if (this.ownPublisher) this.publisher.start();
     const missing = this.configMessage();
     if (missing) {
@@ -413,7 +448,12 @@ export class IpxApp {
     if (generation !== this.generation) return;
     if (this.refusedApplies()) {
       await this.setStatus(false, T.refused);
-    } else if (this.verdict === 'different' || this.verdict === 'unbound') {
+    } else if (
+      this.verdict === 'different' ||
+      this.verdict === 'unbound' ||
+      this.saveFailed ||
+      this.storeUnreadable
+    ) {
       // Known before any read: said at once, not at the next round.
       await this.setStatus(false, this.statusMessage());
     } else {
@@ -550,6 +590,7 @@ export class IpxApp {
   }
 
   configMessage() {
+    if (this.config.duplicateOf !== undefined) return T.duplicateSlot(this.config.duplicateOf);
     if (this.config.addressError === 'path') return T.addressPath;
     if (this.config.addressError === 'https') return T.addressHttps;
     if (this.config.addressError === 'invalid') return T.addressInvalid;
@@ -577,7 +618,7 @@ export class IpxApp {
     this.published = undefined;
     await this.publishDevices();
     if (this.round && !this.offline && !this.refusedApplies()) {
-      await this.setStatus(this.statusConnected(), this.statusMessage());
+      await this.setStatus(this.statusFlag(), this.statusMessage());
     }
   }
 
@@ -619,46 +660,136 @@ export class IpxApp {
     }));
   }
 
-  /** true when /data was written. A failure is logged once until a save succeeds again. */
+  /**
+   * `{ value }` once `promise` settles within TIMINGS.storeWait, `{ late: true }` otherwise (it
+   * keeps running; its outcome is then ignored). Rejects as `promise` does, within the bound.
+   */
+  bounded(promise, ms = TIMINGS.storeWait) {
+    let timer;
+    return Promise.race([
+      promise.then((value) => ({ value })),
+      new Promise((resolve) => {
+        timer = this.timers.setTimeout(() => resolve({ late: true }), ms);
+      }),
+    ]).finally(() => this.timers.clearTimeout(timer));
+  }
+
+  /** A save or a read of /data that did not answer in time, or failed: logged once. */
+  storeFailed(what, err) {
+    if (!this.saveFailed) {
+      this.saveFailed = true;
+      this.logger.warn(`ipx800: ${what} /data failed (${err?.code ?? err?.name ?? 'error'})`);
+    }
+    // Said in the status at once (not awaited: a slow Gladys never holds /data's callers).
+    if (this.round && !this.offline && !this.refusedApplies()) this.statusAgain().catch(() => {});
+    return false;
+  }
+
+  /**
+   * /data reads again (after it could not be read): its owner and guards adopted, and the
+   * verdict worked out again from them (an Off clicked then goes to the IPX800 it names).
+   */
+  async reloadMemory() {
+    const inFlight = this.reloading;
+    if (inFlight && this.monotonic() - inFlight.at >= TIMINGS.storeWait) return false;
+    const entry = inFlight ?? { at: this.monotonic(), promise: this.store.load() };
+    if (!inFlight) {
+      this.reloading = entry;
+      entry.promise
+        .catch(() => {})
+        .finally(() => {
+          if (this.reloading === entry) this.reloading = undefined;
+        });
+    }
+    let answer;
+    try {
+      answer = await this.bounded(entry.promise);
+    } catch (err) {
+      this.storeCorrupt = isCorrupt(err);
+      return false;
+    }
+    if (answer.late || !this.storeUnreadable) return !answer.late;
+    const loaded = normalizeMemory(answer.value, this.now());
+    this.storeUnreadable = false;
+    this.storeCorrupt = false;
+    // The owner and its salt are the file's: none was set while it could not be read.
+    this.memory.owner = loaded.owner;
+    this.memory.salt = loaded.salt || this.memory.salt || this.random();
+    if (loaded.key === this.config.key) {
+      for (const g of loaded.guards) {
+        if (!this.guards.has(g.code)) this.guards.set(g.code, this.makeGuard(g));
+      }
+      this.dropUnlistedGuards();
+      this.memory.refused ??= loaded.refused;
+    }
+    this.logger.info('ipx800: /data reads again');
+    if (this.client) {
+      this.applyVerdict(this.round && !this.offline ? this.judge() : this.verdictAtStart());
+      this.statusAgain().catch(() => {});
+    }
+    return true;
+  }
+
+  /**
+   * true when /data was written. Bounded (TIMINGS.storeWait): a /data that does not answer
+   * never holds a read, a start or a switch-off; one save at a time, a save asked while one
+   * hangs is not stacked (the next one after it writes the latest state).
+   */
   async saveMemory() {
     if (!this.memoryLoaded) {
       // Between the reset of a start and its read of /data: never written over.
       return false;
     }
-    if (this.storeUnreadable) {
+    if (this.storeUnreadable && !(await this.reloadMemory())) {
       // Read again first: what it holds is never overwritten unseen.
-      try {
-        const loaded = normalizeMemory(await this.store.load(), this.now());
-        this.storeUnreadable = false;
-        // The owner and its salt are the file's: none was set while it could not be read.
-        this.memory.owner = loaded.owner;
-        this.memory.salt = loaded.salt || this.memory.salt || this.random();
-        if (loaded.key === this.config.key) {
-          for (const g of loaded.guards) {
-            if (!this.guards.has(g.code)) {
-              this.guards.set(g.code, this.makeGuard(g));
-            }
-          }
-          this.memory.refused ??= loaded.refused;
-        }
-      } catch {
-        return false;
+      return false;
+    }
+    const inFlight = this.saving;
+    if (inFlight) {
+      this.saveAgain = true;
+      if (this.monotonic() - inFlight.at >= TIMINGS.storeWait) {
+        return this.storeFailed('writing', { code: 'timeout' });
       }
+      const answer = await this.bounded(
+        inFlight.promise.then(
+          () => true,
+          () => false,
+        ),
+        Math.max(0, inFlight.at + TIMINGS.storeWait - this.monotonic()),
+      );
+      if (answer.late) return this.storeFailed('writing', { code: 'timeout' });
+      // The latest state follows it (saveAgain): its outcome is the answer.
+      return answer.value ? true : this.storeFailed('saving the state to', { code: 'error' });
     }
     this.syncMemory();
+    const entry = { at: this.monotonic(), promise: this.store.save(this.memory) };
+    this.saving = entry;
+    this.saveAgain = false;
+    entry.promise
+      .catch(() => {})
+      .finally(() => {
+        if (this.saving !== entry) return;
+        this.saving = undefined;
+        // Asked while it hung: the latest state written now.
+        if (this.saveAgain) {
+          this.saveAgain = false;
+          this.saveMemory().catch(() => {});
+        }
+      });
     try {
-      await this.store.save(this.memory);
+      const answer = await this.bounded(entry.promise);
+      if (answer.late) return this.storeFailed('writing', { code: 'timeout' });
+      this.storeLost = false;
       if (this.saveFailed) {
         this.saveFailed = false;
         this.logger.info('ipx800: /data written again');
+        if (this.round && !this.offline && !this.refusedApplies()) {
+          this.statusAgain().catch(() => {});
+        }
       }
       return true;
     } catch (err) {
-      if (!this.saveFailed) {
-        this.saveFailed = true;
-        this.logger.warn(`ipx800: saving the state to /data failed (${err?.code ?? 'error'})`);
-      }
-      return false;
+      return this.storeFailed('saving the state to', err);
     }
   }
 
@@ -784,13 +915,23 @@ export class IpxApp {
       deadline: Math.min(this.monotonic() + TIMINGS.requestTimeout, budget),
       onSent: () => (at = this.monotonic()),
     }));
-    const parsed = parseXml(body);
-    if (parsed.error) throw new IpxError(parsed.error, 'not an IPX800 V3 answer', { sent: true });
+    const parsed = this.statusOf(body);
     // The V3 API gives no MAC address: it is known by its address (the controller key).
     return {
       targets: parseV3(parsed.fields, v3Codes(this.config.extensions, this.config.relays)),
       at,
     };
+  }
+
+  /** The fields of a status page; throws for an answer that holds no reading. */
+  statusOf(body) {
+    const parsed = parseXml(body);
+    if (parsed.error) throw new IpxError(parsed.error, 'not an IPX800 V3 answer', { sent: true });
+    if (isPendingAnswer(parsed.fields)) {
+      // Never a reading: no value published, no guard confirmed or lifted by it.
+      throw new IpxError('pending', 'status not ready (dnsstatus pending)', { sent: true });
+    }
+    return parsed;
   }
 
   async succeeded({ targets, at }) {
@@ -811,7 +952,7 @@ export class IpxApp {
     this.applyVerdict(this.judge());
     this.applyRead(at);
     await this.saveMemory();
-    await this.setStatus(this.statusConnected(), this.statusMessage());
+    await this.setStatus(this.statusFlag(), this.statusMessage());
     await this.publishDevices();
     await this.flush();
   }
@@ -846,9 +987,14 @@ export class IpxApp {
     await this.publishDevices();
   }
 
-  /** Connected for Gladys, and its values published onto the devices: the IPX800 of the devices. */
+  /** Its values published onto the devices: the IPX800 of the devices. */
   statusConnected() {
     return this.verdict === 'same';
+  }
+
+  /** "Connected" for Gladys: the IPX800 of the devices, and /data that reads and writes. */
+  statusFlag() {
+    return this.statusConnected() && !this.saveFailed && !this.storeUnreadable;
   }
 
   /** The counts and the warnings of the last round. */
@@ -856,7 +1002,7 @@ export class IpxApp {
     if (this.verdict === 'different' || this.verdict === 'unbound') {
       return join(
         this.verdictMessage(),
-        this.saveFailed || this.storeUnreadable ? T.storeProblem : undefined,
+        this.saveFailed && !this.ownerUnknown ? T.storeProblem : undefined,
       );
     }
     const counts = { relays: 0, inputs: 0, analogs: 0 };
@@ -1121,10 +1267,15 @@ export class IpxApp {
   // owner. Known limit: another IPX800 V3 put at the same address and port is not told
   // apart (written in the guide).
 
+  /** /data cannot be read, or cannot be written while it holds nothing: owner unknown. */
+  get ownerUnknown() {
+    return this.storeUnreadable || this.storeLost;
+  }
+
   /** Before any read: from /data and the configuration only. */
   verdictAtStart() {
     const owner = this.memory.owner;
-    if (this.storeUnreadable || !owner) return 'unbound';
+    if (this.ownerUnknown || !owner) return 'unbound';
     return owner.id === this.config.key ? 'same' : 'different';
   }
 
@@ -1133,7 +1284,7 @@ export class IpxApp {
     const owner = this.memory.owner;
     const key = this.config.key;
     // /data unreadable is not empty: no owner is set over it (switch-offs only).
-    if (this.storeUnreadable) return 'unbound';
+    if (this.ownerUnknown) return 'unbound';
     const hasDevices = this.createdDevices().length > 0;
     const bind = (why) => {
       this.memory.owner = { kind: 'address', id: key };
@@ -1170,17 +1321,17 @@ export class IpxApp {
   }
 
   /**
-   * May a command leave for this IPX800? `protective`: a switch-off, sent unless the IPX800
-   * is another one, or not known for sure (/data unreadable: then to the address typed).
-   * The others: only to the IPX800 of the devices.
+   * May a command leave for this IPX800? `protective`: a switch-off, sent unless /data names
+   * another address. An owner not known (no /data, lost, unreadable, never writable) is no
+   * reason to refuse it: the identity of a V3 is the address typed, where it goes. The others:
+   * only to the IPX800 of the devices.
    */
   mayDrive(protective) {
     switch (this.verdict) {
       case 'same':
         return true;
       case 'unbound':
-        // /data unreadable: its owner unknown, the switch-offs go to the address typed.
-        return protective && this.storeUnreadable;
+        return protective;
       default:
         return false;
     }
@@ -1193,44 +1344,72 @@ export class IpxApp {
 
   verdictError() {
     if (this.verdict === 'different') return ERRORS.otherIpx(this.slot);
+    if (this.ownerUnknown) return ERRORS.ownerUnknown;
     return ERRORS.notAttached(this.slot);
   }
 
   verdictMessage() {
     if (this.verdict === 'different') return T.otherIpx(this.slot);
-    if (this.storeUnreadable) return T.ownerUnreadable;
+    if (this.storeUnreadable) return this.storeCorrupt ? T.ownerCorrupt : T.ownerUnreadable;
+    if (this.storeLost) return T.ownerUnwritable;
     return T.notAttached(this.slot);
   }
 
   /**
    * "Attach the devices": the devices of this slot belong from now on to the IPX800 read by
-   * the last round (another one, or one not known for sure). Two clicks within a minute on
-   * the same IPX800: the relays listed then drive that one. Its kept Offs are dropped.
+   * the last round, at the address typed. Two clicks within a minute; kept only once /data is
+   * written (it must survive a restart). A /data file that is not ours (bad JSON) is written
+   * over by it, never one that cannot be read now (it may read again).
    */
   async attach() {
     if (!this.client || !this.round || this.offline) {
       return T.attach.notRead;
     }
-    if (this.verdict === 'same') return T.attach.already(this.slot);
-    if (this.storeUnreadable) return T.storeProblem;
+    if (this.verdict === 'same' && !this.ownerUnknown) return T.attach.already(this.slot);
+    if (this.storeUnreadable && !this.storeCorrupt) return T.attach.unreadable;
+    if (this.saveFailed && !this.storeCorrupt) return T.attach.unwritable;
     const mono = this.monotonic();
     const id = this.config.key;
     const count = this.createdDevices().length;
     const ask = this.attachAsk;
     if (!ask || ask.id !== id || mono - ask.at > TIMINGS.attachConfirm) {
       this.attachAsk = { at: mono, id };
-      return T.attach.confirm(this.slot, count);
+      return T.attach.confirm(this.slot, this.shownAddress(), count, this.storeCorrupt);
     }
     this.attachAsk = undefined;
+    const before = {
+      owner: this.memory.owner,
+      verdict: this.verdict,
+      unreadable: this.storeUnreadable,
+      corrupt: this.storeCorrupt,
+    };
+    if (this.storeCorrupt) {
+      // Written over: a fresh state for this address (the guards held in memory kept).
+      this.memory = { ...emptyMemory(), salt: this.random(), key: this.config.key };
+      this.storeUnreadable = false;
+      this.storeCorrupt = false;
+    }
     this.memory.owner = { kind: 'address', id: this.config.key };
-    this.dropGuards('devices attached to another IPX800');
+    if (!(await this.saveMemory())) {
+      // Kept nowhere, so lost at the next restart: not done, said.
+      this.memory.owner = before.owner;
+      this.verdict = before.verdict;
+      this.storeUnreadable = before.unreadable;
+      this.storeCorrupt = before.corrupt;
+      return T.attach.unwritable;
+    }
+    this.storeLost = false;
     this.verdict = 'same';
     this.logger.info(`ipx800: devices of IPX800 #${this.slot} attached to the IPX800 read`);
-    await this.saveMemory();
     this.published = undefined;
-    await this.setStatus(this.statusConnected(), this.statusMessage());
+    await this.setStatus(this.statusFlag(), this.statusMessage());
     await this.publishDevices();
     return T.attach.done(this.slot, count);
+  }
+
+  /** The address as the user typed it: "192.168.1.50" or "192.168.1.50:8080". */
+  shownAddress() {
+    return this.config.port === 80 ? this.config.host : `${this.config.host}:${this.config.port}`;
   }
 
   // --- Gladys --------------------------------------------------------------------
@@ -1336,7 +1515,7 @@ export class IpxApp {
   /** The status of the last round again (what Gladys knows changed), never during a failure. */
   async statusAgain() {
     if (this.round && !this.offline && !this.refusedApplies()) {
-      await this.setStatus(this.statusConnected(), this.statusMessage());
+      await this.setStatus(this.statusFlag(), this.statusMessage());
     }
   }
 
@@ -1454,8 +1633,7 @@ export class IpxApp {
         },
       };
       const values = new Map();
-      const parsed = parseXml(await client.readStatus(priority, () => hooks));
-      if (parsed.error) throw new IpxError(parsed.error, 'not an IPX800 V3 answer', { sent: true });
+      const parsed = this.statusOf(await client.readStatus(priority, () => hooks));
       for (const [code, target] of parseV3(parsed.fields, this.model.keys())) {
         // Relays and inputs only: a read back confirms commands, analogs come with the rounds.
         if (target.kind !== KINDS.ANALOG) values.set(code, target.value);
@@ -1509,11 +1687,18 @@ export class IpxApp {
         else if (pending) pending.waiting = false;
       }
       if (!ready) {
-        if (pending) throw this.refusal(ERRORS.keptUntilConfig);
+        if (pending) {
+          throw this.refusal(this.configLoaded ? ERRORS.keptUntilStart : ERRORS.keptUntilConfig);
+        }
         throw this.refusal(ERRORS.configNotLoaded);
       }
     }
-    if (!this.client) throw this.refusal(ERRORS.noConfig);
+    if (!this.client) {
+      if (this.config.duplicateOf !== undefined) {
+        throw this.refusal(ERRORS.duplicateSlot(this.config.duplicateOf));
+      }
+      throw this.refusal(ERRORS.noConfig);
+    }
     if (kind !== KINDS.RELAY) throw this.refusal(ERRORS.notCommandable);
     if (wanted !== 0 && wanted !== 1) throw this.refusal(ERRORS.badValue);
     if (!this.config.relays.has(parsed.code)) throw this.refusal(ERRORS.readOnly);
@@ -1657,7 +1842,7 @@ export class IpxApp {
       if (err.code === 'bad_request') return this.refusal(ERRORS.badValue);
       return this.refusal(ERRORS.notSent(reasonOf(err)));
     }
-    if (err.code === 'refused') return this.refusal(ERRORS.keyRefused);
+    if (err.code === 'refused') return this.refusal(ERRORS.keyRefusedSent);
     if (err.code === 'not_success' || err.code === 'http' || err.code === 'busy') {
       return this.refusal(ERRORS.rejected);
     }

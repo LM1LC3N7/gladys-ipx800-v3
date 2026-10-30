@@ -122,7 +122,7 @@ test('two IPX800 V3: their own devices, each command to its own IPX800 only, its
   const message = gladys.fake.connectionStatus.message;
   assert.match(
     message.en,
-    /^IPX800 #1: Connected to the IPX800 V3.*\nIPX800 #2: Connected to the IPX800 V3/s,
+    /^IPX800 #1: Connected to the IPX800 V3.* \| IPX800 #2: Connected to the IPX800 V3/s,
   );
   assert.match(message.fr, /IPX800 n°2 : Connecté à l’IPX800 V3/);
   assert.ok(
@@ -198,7 +198,7 @@ test('the test button answers for each IPX800; Attach goes to the slot chosen', 
   await start();
   await wait(10_000);
   const answer = await gladys.fake.action('test_connection', {});
-  assert.match(answer.data.message.en, /IPX800 #1: .*\nIPX800 #2: /s);
+  assert.match(answer.data.message.en, /IPX800 #1: .* \| IPX800 #2: /s);
   const attach = await gladys.fake.action('attach_devices', { ipx: '2' });
   assert.match(attach.data.message.en, /devices of IPX800 #2 already belong/);
   const none = await gladys.fake.action('attach_devices', { ipx: '7' });

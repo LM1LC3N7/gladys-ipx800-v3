@@ -18,7 +18,9 @@ to date at the end of every milestone.
       against an in-memory IPX800 V3 on a virtual clock, and a real local
       HTTP server on a real clock (x20). Requested by cce66 (forum t/11448,
       reserved in t/10385 #436), who has the real boxes and will test.
-- [ ] **Review** (xhigh: the module drives relays).
+- [x] **Review r1** (2026-10-30, xhigh): REFUSÉ, 1 bloquant (frozen /data),
+      4 importants, 6 mineurs; fixed (see "Decisions after the review r1").
+- [ ] **Review r2**.
 - [ ] **cce66's test** on his IPX800 V3: the questions below; then "never
       tested with a real device" goes (README, docs, manifest; ask Louis).
 - [ ] **Milestone 2**: counters (`count<n>`: lifetime counters, never 0 nor
@@ -67,6 +69,21 @@ code with a fallback or a limit, and asked below.
 - HTTP Basic credentials (ha_ipx800v3 and pyipx800v3; not in cce66's tool),
   and what a wrong one answers (401 assumed, as both libraries do).
 - The MAC address: in neither. The identity is the address and port.
+- The "not ready" answer (ha_ipx800v3 e90a553, `api/client.py`: every
+  `analog<n>` 0 and `dnsstatus` holding "pending", seen on a real V3): read
+  here as a failed read (nothing published, no guard decided on it).
+- Raw analog 0 = nothing wired, 1023 = an open input: from no source, a
+  cautious assumption (no measurement published then); asked below.
+
+**cce66's Api-Deck V3 inverts its "Preset sortie" and "Set sortie"**
+(`GCE_IPX800V3_Api-Deck v1.html`, e76f2b3): the options are
+`['1 - On','0 - Off']`, rendered as `<option value="${index}">`, and
+`buildCmd` writes `set${num}=${state}` with that index: "1 - On" sends
+`set1=0`, "0 - Off" sends `set1=1` (the M2M `Set{num}{state}` too). The
+module follows ha_ipx800v3 and pyipx800v3 (`set<N>=1` on, `=0` off), held by
+a test (`test/review-r1.test.js`, I4). A test with the tool would show the
+reverse: never "fix" the writes from it (every switch-off and "turn
+everything off" would switch on).
 
 ## Questions for cce66 (his IPX800 V3)
 
@@ -81,12 +98,60 @@ code with a fallback or a limit, and asked below.
    be told apart?
 4. With the protection on: does a wrong password answer 401 (or a login page
    with 200)? Does `preset.htm` need the password too?
-5. `preset.htm?set1=1` then `set1=0` on a relay he can watch: does it switch
-   both ways, and what does a relay set in pulse mode (Ta / Tb) do with it?
+5. **With URLs typed by hand in a browser** (not his Api-Deck, whose "Preset
+   sortie" sends the index of its option: "1 - On" gives `set1=0`):
+   `http://<ipx>/preset.htm?set1=1`, then `http://<ipx>/preset.htm?set1=0`,
+   on a relay he can watch: does the first switch it on and the second off?
+   And on a relay set in pulse mode (Ta / Tb): does `set1=1` start the pulse,
+   or leave it on?
 6. Inputs 9-32: are they those of an X-24D / X-880, or the virtual inputs
    his tool "simulates" (`leds.cgi?led=99+n`)?
 7. His analog probes: which types, and do the temperatures in Gladys match
-   the IPX page (TC4012, TC100, SHT)?
+   the IPX page (TC4012, TC100, SHT)? An input with nothing wired: does it
+   read 0, and an open one 1023?
+8. Right after the IPX800 starts (power on): does `globalstatus.xml` answer
+   every analog value 0 and `<dnsstatus>pending</dnsstatus>` for a while?
+
+## Notes for the forum (reply to cce66, t/11448)
+
+- Ask for the test of question 5 **with URLs typed by hand**, and say why:
+  the "Preset sortie" and "Set sortie" of his Api-Deck V3 send the index of
+  the option ("1 - On" sends `set1=0`): tested with it, the relay does the
+  reverse. A friendly report for his tool, nothing to change in Gladys.
+- Ask him not to list a relay set to pulse mode (a gate, a door strike)
+  until question 5 is answered.
+
+## Decisions after the review r1 (2026-10-30)
+
+- **B1, frozen /data**: every read and save of `/data` is bounded
+  (`TIMINGS.storeWait`, 1.5 s). A load past it is "unreadable" (the start goes
+  on, owner unknown, switch-offs to the address typed); a save past it is a
+  failed save (logged once, status not "Connected", text said), one save at a
+  time (a save asked while one hangs is not stacked; the latest state goes
+  once it ends). Rounds, the test button and switch-offs never wait longer.
+- **I1, owner unknown** (no file with devices, `/data` never writable,
+  unreadable, damaged): the switch-off of a listed relay goes to the address
+  typed (the identity of a V3); switching on waits for "Attach the devices".
+  When `/data` reads again, its owner and guards are taken and the verdict
+  worked out again. "Attach" is made only when `/data` writes it (it must
+  survive a restart); refused, said, otherwise.
+- **I2**: the guards held in memory are carried into a new session of the
+  same controller key (new credentials), whatever `/data` kept.
+- **I3**: the "not ready" answer of ha_ipx800v3 e90a553 is a failed read
+  (code `pending`): nothing published, no guard confirmed or lifted.
+- **I4**: see "cce66's Api-Deck V3 inverts…" above; question 5 rewritten.
+- **m1**: a slot with the controller key of an earlier slot is not read nor
+  driven, its status says so (`slotConfigs`, as gladys-ipx800 7786d42).
+- **m2**: ids of a slot this version does not have (`ipx4:`…) get a plain
+  refusal (as gladys-ipx800 7786d42).
+- **m3**: a damaged state file (bad JSON, too large) is written again by
+  "Attach the devices" (two clicks, after a successful read); a `/data` that
+  cannot be read right now (EIO, no answer) is never written over.
+- **m4**: texts: "nothing was applied" after a 401 to a write that left;
+  a click during a restart says the restart, not Gladys; the pulse-mode
+  warning in the relays field; the hub status joined by " | " (Gladys shows
+  one block), as gladys-ipx800 7786d42.
+- **m6**: tests for P12, P19, I11 (`test/review-r1.test.js`).
 
 ## Decisions
 

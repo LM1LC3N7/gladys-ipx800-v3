@@ -565,7 +565,7 @@ test('/data unreadable is not empty: nothing written over it, said; the switch-o
   assert.equal(store.saves, 0);
   assert.match(message(gladys), /\/data/);
   const on = await cmd(device, F('relay', 'r1', 'switch'), 1);
-  assert.match(on.error, /Rien ne dit/, 'which IPX800 is unknown: no switch-on');
+  assert.match(on.error, /on ne sait pas à quel IPX800/, 'which IPX800 is unknown: no switch-on');
   const off = await cmd(device, F('relay', 'r1', 'switch'), 0);
   assert.equal(off.success, true, off.error);
   assert.equal(led(world, 1), 0);
