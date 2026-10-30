@@ -1,67 +1,214 @@
-# Template de démonstration
+# IPX800 V3 pour Gladys
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Amène dans Gladys **jusqu’à trois IPX800 V3 de GCE Electronics** par leur
+interface HTTP locale : leurs relais, leurs entrées et leurs entrées
+analogiques reliées à une sonde de température ou d’humidité.
+
+> Jamais testé avec un vrai appareil : écrit d’après l’intégration Home
+> Assistant libre ha_ipx800v3 et les outils de test publiés par cce66 sur le
+> forum. Dites-nous ce que vous voyez sur le vôtre. Sans lien avec GCE
+> Electronics.
+
+Pour un IPX800 V4 ou V5, utilisez l’intégration **IPX800** (une autre API).
+
+## Installation
+
+1. Dans Gladys, Intégrations > IPX800 V3 : saisissez l’adresse de l’IPX800
+   (par ex. `192.168.1.50`, avec `:port` seulement si son serveur web n’est
+   pas sur le 80 ; donnez-lui une adresse fixe dans votre box).
+2. Si l’IPX800 protège ses pages par un utilisateur et un mot de passe
+   (Réseau > Sécurité), saisissez les deux ; sinon laissez-les vides.
+3. Sur la même page, listez dans « Relais pilotables par Gladys » les
+   relais que Gladys doit piloter, et eux seulement (par ex. `R1, R2` ; voir
+   « Relais » plus bas : jamais une pompe, une VMC, une gâche…). Si l’IPX800 a
+   des extensions (X-880, X-24D), listez-les dans « Extensions », par ex.
+   `R9-R16, D9-D24`. Puis enregistrez.
+4. « Tester la connexion » lit l’IPX800 tout de suite (une fois un intervalle
+   passé depuis la dernière lecture) et montre ce qu’il a trouvé.
+5. Dans Découverte, créez les appareils voulus. Un relais listé arrive en
+   interrupteur (ou en lumière) ; les autres arrivent **en lecture seule**
+   (« État (lecture seule) ») : Gladys montre leur état, rien ne peut les
+   commuter.
+
+Un relais listé **après** sa création reste en lecture seule jusqu’à ce que
+vous cliquiez **« Mettre à jour »** sur lui dans Découverte : il reçoit alors
+son interrupteur (ou sa lumière), à côté de son « État (lecture seule) »,
+qui reste. L’état de l’intégration dit combien de relais sont en lecture
+seule tant qu’aucun n’est listé, et quels relais listés attendent encore
+« Mettre à jour ».
+
+Le mot de passe part avec chaque requête, en http simple (comme les pages de
+l’IPX800) : qui peut écouter votre réseau local peut le lire. Il est gardé
+par Gladys dans sa base, jamais réaffiché, envoyé seulement à l’IPX800, et
+jamais écrit dans les journaux ni dans les fichiers de l’intégration.
 
 ## Ce que vous obtenez
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+| Sur l’IPX800                                                    | Dans Gladys                                                | Code (dans le nom) |
+| --------------------------------------------------------------- | ---------------------------------------------------------- | ------------------ |
+| Relais 1 à 8 (jusqu’à 32)                                       | lecture seule, ou interrupteur / lumière si vous le listez | `R3`               |
+| Entrée 1 à 8 (jusqu’à 32)                                       | une entrée binaire (lecture seule)                         | `D3`               |
+| Entrée analogique 1 à 4, sonde TC4012, TC100 ou SHT température | température (°C)                                           | `A1`               |
+| Entrée analogique 1 à 4, sonde SHT humidité                     | humidité (%)                                               | `A2`               |
 
-## Configuration
+L’IPX800 V3 répond 32 relais et 32 entrées, câblés ou non : l’intégration
+montre ses 8 relais et 8 entrées, et ce que vous listez dans « Extensions ».
+Une entrée est « allumée » quand l’IPX800 la lit fermée (`dn`).
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+Une entrée analogique n’est publiée que si le type de sonde choisi sur
+l’IPX800 est l’un de ceux du tableau ; sa valeur est calculée avec les
+formules de GCE (celles de l’intégration Home Assistant). L’humidité d’une
+sonde SHT est corrigée pour 15 °C (l’intégration ne sait pas quelle
+température la sonde voit) : à 25 °C, elle lit environ 2 % trop haut. Les
+autres types (brut, tension, lumière, X-400 CT, pH, ORP) ne sont pas dans
+cette version : l’état nomme les entrées concernées. Une valeur brute de 0
+(rien de branché) ou de 1023 (entrée en l’air) n’est pas une mesure.
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+L’IPX800 est lu toutes les 10 secondes par défaut (5 s au moins), par sa
+page `globalstatus.xml`, ou `status.xml` quand elle manque. Une valeur que
+l’IPX800 ne donne pas (absente, un texte, hors plage) n’est pas publiée :
+jamais comme 0.
 
-## Actions
+## Plusieurs IPX800 V3
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+Gardez le premier dans les champs du haut, et mettez l’autre dans
+**« IPX800 n°2 »** (adresse avec `:port` si besoin, utilisateur et mot de
+passe, ses relais pilotables, ses extensions), un troisième dans « IPX800
+n°3 ». Chacun a ses propres appareils dans Découverte (« IPX800 n°2 · Relais
+1 (R1) »), sa liste de relais pilotables et son état sur sa ligne.
+L’intervalle de lecture et la langue sont communs.
 
-## Scènes
+**Ne changez pas l’adresse d’un emplacement pour essayer un autre IPX800** :
+les appareils déjà créés restent avec leur emplacement. Ajoutez l’autre en
+n°2.
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+## Chaque IPX800 garde ses appareils
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+Un appareil créé pour un IPX800 ne commande jamais un IPX800 à une autre
+adresse (ou un autre port).
+L’intégration retient, dans `/data`, à quel IPX800 appartiennent les
+appareils de chaque emplacement : par **son adresse et son port** (gardés
+sous forme d’empreinte), car l’API de la V3 ne donne pas d’adresse MAC
+connue de l’intégration.
 
-## Tableau de bord
+Si l’adresse ou le port d’un emplacement change alors qu’il a des
+appareils :
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+- aucune commande ne part vers la nouvelle adresse, pas même une
+  extinction ;
+- les extinctions gardées pour l’ancienne sont abandonnées ;
+- aucune valeur lue n’est publiée sur ces appareils ;
+- la Découverte est vide pour cet emplacement ;
+- l’état le dit.
 
-## Dépannage
+Remettez alors l’ancienne adresse. Si c’est bien **le même IPX800 à une
+nouvelle adresse**, cliquez **deux fois** « Rattacher les appareils » (dans
+la minute), en choisissant l’emplacement : ses appareils pilotent alors
+l’IPX800 lu à cette adresse, avec la liste de relais pilotables de
+l’emplacement. Un emplacement sans aucun appareil créé prend simplement
+l’IPX800 qu’il lit. Si l’état de `/data` est perdu alors que des appareils
+existent, rien ne leur est envoyé jusqu’au rattachement (deux clics).
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+Limite : un autre IPX800 V3 mis **à la même adresse et au même port** ne se
+distingue pas du premier.
+
+## Relais : en lecture seule sauf ceux que vous listez
+
+Un relais que vous ne listez pas est **en lecture seule**. Pour en piloter
+un depuis Gladys, listez-le dans « Relais pilotables par Gladys », par ex.
+`R1, R3:light` (`:light` en fait une lumière, sinon un interrupteur), de
+préférence avant de le créer dans Découverte ; déjà créé, cliquez « Mettre à
+jour » sur lui dans Découverte. Un interrupteur ou une lumière obéit à tout
+« éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais
+une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne. Un
+relais retiré de la liste repasse aussitôt en lecture seule : ses commandes
+sont refusées, et une extinction que l’intégration tenait encore pour lui est
+abandonnée (en mémoire et dans `/data`, au redémarrage aussi). Son
+interrupteur reste sur l’appareil dans Gladys (sans effet) : Gladys ne
+supprime pas une fonctionnalité seule ; seule la suppression de l’appareil,
+puis sa recréation, l’enlève, avec son historique.
+
+Un relais est écrit par `preset.htm` (allumé ou éteint, une valeur
+absolue), jamais par une inversion. Un relais réglé en mode impulsion sur
+l’IPX800 (délais Ta / Tb) n’a pas été essayé : ne le listez pas avant que ce
+soit vérifié.
+
+## L’extinction d’un relais listé
+
+L’extinction d’un relais listé passe avant tout le reste : pendant une pause
+après des lectures en échec, avec un utilisateur ou un mot de passe refusé
+(elle est quand même essayée), avec la file de commandes pleine, et avant la
+première lecture après un redémarrage. Cliquée, elle interrompt toute
+requête en cours (une lecture, une relecture, une commande, un renvoi), sauf
+une autre extinction cliquée juste avant ; une extinction restée sans
+réponse depuis 1 s est interrompue par la suivante.
+
+Elle n’est refusée que si :
+
+- l’adresse manque ou n’est pas valide, ou l’utilisateur et le mot de passe
+  ne sont pas valides (l’un sans l’autre, par exemple) ;
+- le relais n’est pas listé ;
+- la valeur n’est ni 0 ni 1 ;
+- le relais n’est pas connu (son numéro n’existe pas dans la dernière
+  réponse de l’IPX800) ;
+- l’IPX800 n’est pas celui de l’appareil, ou rien ne permet de le savoir
+  (voir « Chaque IPX800 garde ses appareils » ; si `/data` est illisible,
+  elle part vers l’adresse saisie).
+
+Cliquée avant que la configuration soit lue dans Gladys (le mot de passe
+n’est gardé que là, jamais dans `/data`), elle la demande aussitôt à Gladys
+et attend 3 s ; si elle n’est pas venue, elle est gardée en mémoire et
+envoyée dès que la configuration est lue (relue toutes les 5 s tant qu’une
+extinction attend), avant tout envoi vers Gladys ; si le relais s’avère
+inconnu ou non listé, l’état le dit. Une extinction gardée dans `/data` part
+de même au démarrage, sans attendre Gladys. Quand l’IPX800 ne la prend pas
+dans les 3,5 s (pas de connexion), elle est gardée et renvoyée dès que
+l’IPX800 est libre, avant les relectures, par les lectures suivantes qui
+montrent le relais allumé, et après un redémarrage ; une extinction qui
+n’est jamais partie n’est jamais abandonnée (seul un envoi compte comme un
+essai). Un renvoi interrompu par un clic avant d’être parti repart juste
+derrière ce clic.
+
+Une extinction que les lectures ne montrent pas est renvoyée, 3 fois au plus
+(trois envois partis) ; puis l’état le dit (vérifiez sur place). Elle reste
+tenue jusqu’à ce qu’une commande plus récente sur ce relais parte (votre
+clic), une autre extinction, le retrait du relais de la liste, ou, une fois
+appliquée, le relais lu allumé deux fois de suite (changé sur l’IPX800
+lui-même, par ses scénarios ou sa page) : jamais par le temps. Ce qui a été
+demandé avant une extinction sur le même relais et pas encore envoyé est
+annulé ; un allumage cliqué pendant qu’elle est en cours d’envoi est refusé.
+Un allumage envoyé par l’intégration avant l’extinction et resté sans
+réponse (coupé par l’extinction, par exemple), si l’IPX800 l’applique quand
+même dans les 5 s après son départ, n’est pas un changement sur l’IPX800 :
+l’extinction est renvoyée.
+
+## Commandes
+
+Une commande est écrite dans les 3,5 s du clic ou refusée avec « rien n’a été
+envoyé ». Elle est ensuite relue sur l’IPX800 : la valeur demandée est un
+succès ; une autre valeur est « pas encore appliquée » ; pas de réponse à
+temps donne « envoyée, sans confirmation ». Deux lectures suivent, 5 s et
+20 s après. Les commandes d’une scène sont écrites l’une après l’autre, puis
+relues une fois. Une seule requête part à la fois vers l’IPX800.
+
+## Pauses et refus
+
+Une lecture en échec met en pause 10 s, 30 s, 1 min, 2 min puis 5 min (une
+minute au moins quand l’IPX800 répond 429 ou 503), pause gardée au
+redémarrage ; l’allumage d’un relais est refusé jusqu’à la fin de la pause.
+Un utilisateur ou un mot de passe refusé par l’IPX800 (401, 403), ou demandé
+alors qu’aucun n’est saisi, arrête les lectures jusqu’à ce que vous les
+changiez ou que « Tester la connexion » aboutisse. Une adresse qui ne répond
+ni `globalstatus.xml` ni `status.xml` (404) n’est sans doute pas un IPX800
+V3 : l’état le dit. Tant qu’un IPX800 ne répond pas (ou refuse
+l’utilisateur), ses appareils quittent la Découverte ; un Scan ne les y
+remet pas. Ils reviennent à la première lecture réussie.
+
+## Limites
+
+- Relais, entrées et entrées analogiques (température, humidité)
+  seulement ; compteurs, autres sondes analogiques, programmations et
+  entrées virtuelles ne sont pas dans cette version.
+- Trois IPX800 V3 au plus par intégration.
+- L’IPX800 est reconnu par son adresse et son port (voir plus haut).
+- http seulement (l’IPX800 répond en http sur le réseau local).
