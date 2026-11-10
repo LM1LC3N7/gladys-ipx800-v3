@@ -1,6 +1,6 @@
 {
   "name": "gladys-ipx800-v3",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Gladys Assistant integration for the GCE IPX800 V3 (relays, inputs, analog sensors) through its local HTTP interface.",
   "type": "module",

@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-10
+
 ## [0.2.0] - 2026-11-10
 
 ### Added
@@ -64,6 +66,7 @@ the notes of the version's GitHub Release.
   a reading; the same address in two slots is refused; ids of an unknown slot
   get a plain refusal.
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-ipx800-v3/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/LM1LC3N7/gladys-ipx800-v3/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/LM1LC3N7/gladys-ipx800-v3/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/LM1LC3N7/gladys-ipx800-v3/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/LM1LC3N7/gladys-ipx800-v3/releases/tag/v0.1.1
