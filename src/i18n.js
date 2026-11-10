@@ -3,7 +3,7 @@
 // refusals of a command), in English and French.
 // -----------------------------------------------------------------------------
 
-import { FEATURES as F, KINDS } from './constants.js';
+import { FEATURES as F } from './constants.js';
 
 /** The text of `texts` in `language`, English otherwise. */
 export const word = (texts, language) => texts[language] ?? texts.en;
@@ -61,22 +61,13 @@ export const FEATURE_NAMES = {
 /** The code as the user types it: `R3`, `D5`, `A1`. */
 export const shownCode = (code) => code.toUpperCase();
 
-/** The name of a target in Gladys: "Relay 3 (R3)", "Input 5 (D5)", "Analog input 1 (A1)". */
-export function targetName(target) {
-  const code = shownCode(target.code);
-  switch (target.kind) {
-    case KINDS.RELAY:
-      return both(`Relay ${target.n} (${code})`, `Relais ${target.n} (${code})`);
-    case KINDS.INPUT:
-      return both(`Input ${target.n} (${code})`, `Entrée ${target.n} (${code})`);
-    default:
-      return both(`Analog input ${target.n} (${code})`, `Entrée analogique ${target.n} (${code})`);
-  }
-}
-
-/** "IPX800 #2 · Relay 3 (R3)" for the IPX800 n >= 2 of the configuration; the name alone for the first. */
-export const slotName = (slot, name) =>
-  slot === 1 ? name : both(`IPX800 #${slot} · ${name.en}`, `IPX800 n°${slot} · ${name.fr}`);
+/**
+ * The name a new device gets in Gladys: `IPX800V3-R3`, `IPX800V3-D5`, `IPX800V3-A1` (cce66's
+ * naming, the same in every language: easy to find again in the dashboards), with the slot
+ * for the IPX800 n >= 2 of the configuration (`IPX800V3-2-R3`). A created device keeps its name.
+ */
+export const deviceName = (slot, code) =>
+  `IPX800V3-${slot === 1 ? '' : `${slot}-`}${shownCode(code)}`;
 
 /** The reason of a failure, in each language. */
 export function reasonOf(err) {

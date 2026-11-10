@@ -20,6 +20,12 @@ to date at the end of every milestone.
       reserved in t/10385 #436), who has the real boxes and will test.
 - [x] **Review r1** (2026-10-30, xhigh): REFUSÉ, 1 bloquant (frozen /data),
       4 importants, 6 mineurs; fixed (see "Decisions after the review r1").
+- [x] **cce66's feedback** (2026-11-10, t/11448 #14, firmware 3.05.69):
+      relays driven fine; his `status.xml` is `test/fixtures/status-3.05.69.xml`
+      (`btn<n>` `dn` connected = 1, `up` = 0, as read already; 16 `analog`
+      / `anselect`; `day` / `time0` wrong on his box, never read). Added:
+      `inputs_poll_ms`, relay ranges `R1-R8`, A1-A16, names `IPX800V3-R1`.
+      See "Decisions after cce66's feedback". A minor version (new options).
 - [ ] **Review r2**.
 - [ ] **cce66's test** on his IPX800 V3: the questions below; then "never
       tested with a real device" goes (README, docs, manifest; ask Louis).
@@ -65,7 +71,8 @@ code with a fallback or a limit, and asked below.
   4 `(x * 0.00323 - 1.63) / 0.0326`, 5 the GCE humidity formula at 15 °C, 6
   (TC100, not in cce66's list) `(x * 0.00323 - 0.25) / 0.028`.
 - The number of analog inputs: cce66's tool 1 to 4; ha_ipx800v3 reads what
-  the page holds. 4 here (A1-A4).
+  the page holds; cce66's real `status.xml` (3.05.69) has `analog0` to
+  `analog15`. 16 here (A1-A16).
 - HTTP Basic credentials (ha_ipx800v3 and pyipx800v3; not in cce66's tool),
   and what a wrong one answers (401 assumed, as both libraries do).
 - The MAC address: in neither. The identity is the address and port.
@@ -120,6 +127,34 @@ everything off" would switch on).
   reverse. A friendly report for his tool, nothing to change in Gladys.
 - Ask him not to list a relay set to pulse mode (a gate, a door strike)
   until question 5 is answered.
+
+## Decisions after cce66's feedback (2026-11-10)
+
+- **Inputs pace**: `inputs_poll_ms` (ms, 1000 to 300000, empty = the poll
+  interval; shared by the slots). The round interval is the faster of the
+  two: one round reads the whole page in one request (no separate input
+  request: one request at a time for the small web server), the next after
+  the answer. 1000 ms at least: the V3 is a PIC web server; 0 or less is
+  read as 1000, never "as fast as possible".
+- **/data at that pace** (rounds under 5 s): the time of the attempt goes to
+  /data before a read at most every 5 s (`TIMINGS.attemptSaveEvery`), and a
+  restart adds those 5 s to its wait (never two reads within the interval);
+  the state after a round is written only when it differs from the last
+  successful save (never while a save is in flight or after a failed one).
+  Guards and commands save as before.
+- **Relay ranges** in "Relays Gladys may drive": `R1-R8`, `1-8`,
+  `R1-R8:light`; a range backwards, from R0 or past R32 is an error and
+  lists none of its relays (never a part of it).
+- **Analog inputs**: 16 read by default (A1-A16); a device only for a
+  published probe type (2, 4, 5, 6), so the unused ones (type 0) cost
+  nothing. Raw / voltage / light: still milestone 2.
+- **Names**: new devices `IPX800V3-<code>` (`IPX800V3-<n>-<code>` for slot
+  n >= 2), language-independent (cce66: easy to find in the dashboards); a
+  created device keeps its name; feature names still follow the language.
+- **Status page order unchanged** (`globalstatus.xml`, then `status.xml` on
+  a 404): cce66 gave `status.xml` only; whether `globalstatus.xml` exists on
+  3.05.69 is still question 1. `day` and `time0` are never read.
+- Mutation list: `scripts/mutants.json` (`node scripts/mutants.mjs`).
 
 ## Decisions after the review r1 (2026-10-30)
 
@@ -227,7 +262,7 @@ everything off" would switch on).
   `password_n`, `relays_n`, `extensions_n`), port in the address; poll
   interval and language shared; one state publisher for the 300 states a
   minute.
-- **Pace**: one round per interval (10 s, 5 to 300), the time of the attempt
+- **Pace**: one round per interval (10 s, 5 to 300; `inputs_poll_ms` faster, see above), the time of the attempt
   in `/data` before the read; failures 10 s, 30 s, 1, 2, 5 min, at least a
   minute on 429 / 503, the pause in `/data`.
 - **Units**: °C and % only (core list). Category `lighting` only.

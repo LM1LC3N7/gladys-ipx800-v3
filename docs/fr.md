@@ -19,7 +19,7 @@ Pour un IPX800 V4 ou V5, utilisez l’intégration **IPX800** (une autre API).
 2. Si l’IPX800 protège ses pages par un utilisateur et un mot de passe
    (Réseau > Sécurité), saisissez les deux ; sinon laissez-les vides.
 3. Sur la même page, listez dans « Relais pilotables par Gladys » les
-   relais que Gladys doit piloter, et eux seulement (par ex. `R1, R2` ; voir
+   relais que Gladys doit piloter, et eux seulement (par ex. `R1, R2`, ou une plage `R1-R8` ; voir
    « Relais » plus bas : jamais une pompe, une VMC, une gâche…). Si l’IPX800 a
    des extensions (X-880, X-24D), listez-les dans « Extensions », par ex.
    `R9-R16, D9-D24`. Puis enregistrez.
@@ -44,16 +44,23 @@ jamais écrit dans les journaux ni dans les fichiers de l’intégration.
 
 ## Ce que vous obtenez
 
-| Sur l’IPX800                                                    | Dans Gladys                                                | Code (dans le nom) |
-| --------------------------------------------------------------- | ---------------------------------------------------------- | ------------------ |
-| Relais 1 à 8 (jusqu’à 32)                                       | lecture seule, ou interrupteur / lumière si vous le listez | `R3`               |
-| Entrée 1 à 8 (jusqu’à 32)                                       | une entrée binaire (lecture seule)                         | `D3`               |
-| Entrée analogique 1 à 4, sonde TC4012, TC100 ou SHT température | température (°C)                                           | `A1`               |
-| Entrée analogique 1 à 4, sonde SHT humidité                     | humidité (%)                                               | `A2`               |
+| Sur l’IPX800                                                     | Dans Gladys                                                | Code (dans le nom) |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- | ------------------ |
+| Relais 1 à 8 (jusqu’à 32)                                        | lecture seule, ou interrupteur / lumière si vous le listez | `R3`               |
+| Entrée 1 à 8 (jusqu’à 32)                                        | une entrée binaire (lecture seule)                         | `D3`               |
+| Entrée analogique 1 à 16, sonde TC4012, TC100 ou SHT température | température (°C)                                           | `A1`               |
+| Entrée analogique 1 à 16, sonde SHT humidité                     | humidité (%)                                               | `A2`               |
+
+Un nouvel appareil porte le nom de son code : `IPX800V3-R1`, `IPX800V3-D1`,
+`IPX800V3-A1` (`IPX800V3-2-R1` pour l’IPX800 n°2), le même dans les deux
+langues ; renommez-le à votre goût, le nom que vous donnez est gardé.
 
 L’IPX800 V3 répond 32 relais et 32 entrées, câblés ou non : l’intégration
 montre ses 8 relais et 8 entrées, et ce que vous listez dans « Extensions ».
-Une entrée est « allumée » quand l’IPX800 la lit fermée (`dn`).
+Une entrée est « allumée » (1) quand l’IPX800 la lit connectée (`dn` dans
+`status.xml`), « éteinte » (0) sinon (`up`). Ses 16 entrées analogiques
+sont toutes lues ; l’une ne devient un appareil qu’avec un type de sonde du
+tableau. La date et l’heure de l’IPX800 (`day`, `time0`) ne sont pas lues.
 
 Une entrée analogique n’est publiée que si le type de sonde choisi sur
 l’IPX800 est l’un de ceux du tableau ; sa valeur est calculée avec les
@@ -65,7 +72,16 @@ cette version : l’état nomme les entrées concernées. Une valeur brute de 0
 (rien de branché) ou de 1023 (entrée en l’air) n’est pas une mesure.
 
 L’IPX800 est lu toutes les 10 secondes par défaut (5 s au moins), par sa
-page `globalstatus.xml`, ou `status.xml` quand elle manque. Une valeur que
+page `globalstatus.xml`, ou `status.xml` quand elle manque. Pour voir plus
+vite le changement d’une entrée, « Lecture des entrées toutes les
+(millisecondes) » le lit plus souvent : 1000 ms (1 s) au moins, car son
+petit serveur web répond à une requête à la fois. Chaque lecture est une
+requête pour toute la page (relais et entrées analogiques compris), la
+suivante seulement une fois la précédente répondue ; un IPX800 lent ralentit
+les lectures, sans jamais les empiler. À ce rythme, l’intégration n’écrit
+son fichier d’état dans `/data` que si quelque chose a changé (et l’heure de
+la dernière lecture toutes les 5 s au plus), pour ne pas écrire sur le
+disque de Gladys chaque seconde. Une valeur que
 l’IPX800 ne donne pas (absente, un texte, hors plage) n’est pas publiée :
 jamais comme 0.
 
@@ -74,9 +90,8 @@ jamais comme 0.
 Gardez le premier dans les champs du haut, et mettez l’autre dans
 **« IPX800 n°2 »** (adresse avec `:port` si besoin, utilisateur et mot de
 passe, ses relais pilotables, ses extensions), un troisième dans « IPX800
-n°3 ». Chacun a ses propres appareils dans Découverte (« IPX800 n°2 · Relais
-1 (R1) »), sa liste de relais pilotables et son état sur sa ligne.
-L’intervalle de lecture et la langue sont communs.
+n°3 ». Chacun a ses propres appareils dans Découverte (`IPX800V3-2-R1`), sa liste de relais pilotables et son état sur sa ligne.
+Les intervalles de lecture et la langue sont communs.
 
 **Ne changez pas l’adresse d’un emplacement pour essayer un autre IPX800** :
 les appareils déjà créés restent avec leur emplacement. Ajoutez l’autre en
@@ -129,8 +144,9 @@ distingue pas du premier.
 
 Un relais que vous ne listez pas est **en lecture seule**. Pour en piloter
 un depuis Gladys, listez-le dans « Relais pilotables par Gladys », par ex.
-`R1, R3:light` (`:light` en fait une lumière, sinon un interrupteur), de
-préférence avant de le créer dans Découverte ; déjà créé, cliquez « Mettre à
+`R1, R3:light` (`:light` en fait une lumière, sinon un interrupteur), ou
+une plage, `R1-R8` (`R1-R8:light` : toutes en lumières ; une plage à
+l’envers ou au-delà de R32 n’en liste aucun), de préférence avant de le créer dans Découverte ; déjà créé, cliquez « Mettre à
 jour » sur lui dans Découverte. Un interrupteur ou une lumière obéit à tout
 « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais
 une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne. Un

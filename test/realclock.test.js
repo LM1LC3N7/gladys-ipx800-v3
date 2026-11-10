@@ -55,3 +55,32 @@ test('real clock x20: one round per interval (measured), a command confirmed', a
   // Bounded: the rounds, the commands, and one cleared bound per /data read or save.
   assert.ok(clock.timersSet < 80, `${clock.timersSet} timers`);
 });
+
+test('real clock x4: inputs_poll_ms 1000, one round a second (measured), one request at a time', async (t) => {
+  const ipx = await httpIpx({ latencyMs: 5, global: false });
+  const clock = realClock({ speed: 4 });
+  t.after(async () => {
+    clock.close();
+    await ipx.srv.close();
+  });
+  const gladys = createFakeGladys({ selector: 'ipx', config: {} });
+  await gladys.connect();
+  const quiet = () => {};
+  const store = memoryStore();
+  const app = new IpxApp({
+    gladys,
+    logger: { info: quiet, warn: quiet, error: quiet, debug: quiet },
+    now: clock.now,
+    monotonic: clock.monotonic,
+    timers: clock.timers,
+    store,
+  });
+  registerHandlers(gladys, app);
+  t.after(() => app.stop());
+  const spy = spyOn(app, 'readRound', clock);
+  await app.connected({ host: ipx.address, inputs_poll_ms: 1000 });
+  const gaps = await measurePeriod(spy, { count: 8, period: 1000 });
+  assert.equal(gaps.length, 7);
+  assert.ok(store.saves <= 6, `${store.saves} saves of /data in 7 s`);
+  app.stop();
+});

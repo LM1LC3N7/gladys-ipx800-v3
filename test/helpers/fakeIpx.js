@@ -24,6 +24,8 @@ export function fakeIpx(options = {}) {
     /** false: `globalstatus.xml` answers 404 (only `status.xml`). */
     global: options.global ?? true,
     state: v3State(),
+    /** The XML of the state (a real capture can stand in: test/fixtures). */
+    statusXml: options.statusXml ?? v3Xml,
     requests: [],
     inFlight: 0,
     peak: 0,
@@ -122,8 +124,10 @@ function respond(world, record) {
     return text('<html>401 Unauthorized</html>', 401);
   }
   if (world.failReads && !write) return text('', world.failReads);
-  if (url.pathname === '/globalstatus.xml' && world.global) return text(v3Xml(world.state));
-  if (url.pathname === '/status.xml') return text(v3Xml(world.state));
+  if (url.pathname === '/globalstatus.xml' && world.global) {
+    return text(world.statusXml(world.state));
+  }
+  if (url.pathname === '/status.xml') return text(world.statusXml(world.state));
   if (write) {
     if (!world.ignoreWrites && !applyPreset(world.state, url.searchParams)) {
       return text('<html>bad</html>', 400);

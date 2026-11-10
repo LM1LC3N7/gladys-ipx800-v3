@@ -1,0 +1,146 @@
+[
+  {
+    "name": "inputs: dn read as off",
+    "file": "src/ipx/model.js",
+    "from": "(text === 'dn' ? 1 : text === 'up' ? 0 : undefined)",
+    "to": "(text === 'up' ? 1 : text === 'dn' ? 0 : undefined)"
+  },
+  {
+    "name": "inputs: up not read",
+    "file": "src/ipx/model.js",
+    "from": "text === 'up' ? 0 : undefined",
+    "to": "undefined"
+  },
+  {
+    "name": "analog inputs: 4 again",
+    "file": "src/constants.js",
+    "from": "analogs: 16,",
+    "to": "analogs: 4,"
+  },
+  {
+    "name": "analog inputs: an unused type 0 named",
+    "file": "src/ipx/model.js",
+    "from": "&& type !== '0'",
+    "to": ""
+  },
+  {
+    "name": "inputs pace: 100 ms allowed",
+    "file": "src/constants.js",
+    "from": "export const INPUTS_POLL_MS = { min: 1_000,",
+    "to": "export const INPUTS_POLL_MS = { min: 100,"
+  },
+  {
+    "name": "inputs pace: empty = 1 s",
+    "file": "src/config.js",
+    "from": "clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, undefined)",
+    "to": "clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, 1000)"
+  },
+  {
+    "name": "inputs pace: ignored",
+    "file": "src/config.js",
+    "from": "Math.min(config.pollInterval * 1000, config.inputsPollMs ?? Infinity)",
+    "to": "config.pollInterval * 1000"
+  },
+  {
+    "name": "inputs pace: the slower wins",
+    "file": "src/config.js",
+    "from": "Math.min(config.pollInterval * 1000, config.inputsPollMs ?? Infinity)",
+    "to": "Math.max(config.pollInterval * 1000, config.inputsPollMs ?? 0)"
+  },
+  {
+    "name": "inputs pace: not shared with slots",
+    "file": "src/config.js",
+    "from": "'poll_interval', 'inputs_poll_ms', 'language'",
+    "to": "'poll_interval', 'language'"
+  },
+  {
+    "name": "inputs pace: change not rescheduled",
+    "file": "src/app.js",
+    "from": "if (roundInterval(next) !== roundInterval(previous)) {",
+    "to": "if (next.pollInterval !== previous.pollInterval) {"
+  },
+  {
+    "name": "fast rounds: attempt saved every round",
+    "file": "src/app.js",
+    "from": "      !this.fast ||\n",
+    "to": "      true ||\n"
+  },
+  {
+    "name": "fast rounds: attempt never saved",
+    "file": "src/app.js",
+    "from": "      this.attemptSavedAt === undefined ||\n",
+    "to": ""
+  },
+  {
+    "name": "fast rounds: restart without slack",
+    "file": "src/app.js",
+    "from": "if (this.fast) this.lastReadAt += TIMINGS.attemptSaveEvery;",
+    "to": ""
+  },
+  {
+    "name": "fast rounds: state saved every round",
+    "file": "src/app.js",
+    "from": "if (JSON.stringify(this.memory) === this.savedJson) return true;",
+    "to": ""
+  },
+  {
+    "name": "fast rounds: state never saved after a round",
+    "file": "src/app.js",
+    "from": "if (JSON.stringify(this.memory) === this.savedJson) return true;",
+    "to": "return true;"
+  },
+  {
+    "name": "fast rounds: saved state not recorded",
+    "file": "src/app.js",
+    "from": "      this.savedJson = json;\n",
+    "to": ""
+  },
+  {
+    "name": "fast rounds: save in flight ignored",
+    "file": "src/app.js",
+    "from": "      !this.saving &&\n",
+    "to": ""
+  },
+  {
+    "name": "relay range: backwards accepted",
+    "file": "src/config.js",
+    "from": "!first || !last || to < from ||",
+    "to": "!first || !last ||"
+  },
+  {
+    "name": "relay range: past R32 accepted",
+    "file": "src/config.js",
+    "from": "!first || !last || to < from ||",
+    "to": "!first || to < from ||"
+  },
+  {
+    "name": "relay range: last relay left out",
+    "file": "src/config.js",
+    "from": "for (let n = from; n <= to; n += 1) relays.set",
+    "to": "for (let n = from; n < to; n += 1) relays.set"
+  },
+  {
+    "name": "relay range: kind of a range dropped",
+    "file": "src/config.js",
+    "from": "relays.set(`r${n}`, kind);",
+    "to": "relays.set(`r${n}`, n === from ? kind : 'switch');"
+  },
+  {
+    "name": "names: slot number dropped",
+    "file": "src/i18n.js",
+    "from": "${slot === 1 ? '' : `${slot}-`}",
+    "to": ""
+  },
+  {
+    "name": "names: prefix changed",
+    "file": "src/i18n.js",
+    "from": "`IPX800V3-${",
+    "to": "`IPX800 V3 ${"
+  },
+  {
+    "name": "names: a created device renamed",
+    "file": "src/devices.js",
+    "from": "name: created?.name ?? deviceName(slot, target.code),",
+    "to": "name: deviceName(slot, target.code),"
+  }
+]

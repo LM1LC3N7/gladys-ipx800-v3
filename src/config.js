@@ -9,7 +9,7 @@
 
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
-import { API, LIMITS_V3, POLL_INTERVAL, RELAY_KINDS } from './constants.js';
+import { API, INPUTS_POLL_MS, LIMITS_V3, POLL_INTERVAL, RELAY_KINDS } from './constants.js';
 
 /** Defaults, mirrored by the manifest (checked by test/manifest.test.js). */
 export const DEFAULTS = {
@@ -112,9 +112,10 @@ export function relayCode(text) {
 }
 
 /**
- * The relays Gladys may drive: `R1, R3:light` -> Map(code -> kind). A bare
- * number is a relay (`3` = `R3`); no kind = a switch. Every other relay is
- * read only. Wrong entries are reported, not fatal.
+ * The relays Gladys may drive: `R1, R3:light`, or a range `R1-R8` (`R1-R8:light`) -> Map(code
+ * -> kind). A bare number is a relay (`3` = `R3`, `1-8` = `R1-R8`); no kind = a switch. Every
+ * other relay is read only. Wrong entries (a range backwards or past R32 included: nothing of
+ * it is listed) are reported, not fatal.
  */
 export function parseRelays(raw) {
   const relays = new Map();
@@ -122,15 +123,17 @@ export function parseRelays(raw) {
   for (const entry of String(raw ?? '').split(/[,;\n]+/)) {
     const text = entry.trim();
     if (text === '') continue;
-    const match = /^([^:=\s]+)\s*(?:[:=]\s*([a-z]+))?$/i.exec(text);
-    const name = match ? (/^\d+$/.test(match[1]) ? `r${match[1]}` : match[1]) : '';
-    const code = match ? relayCode(name) : undefined;
-    const kind = (match?.[2] ?? 'switch').toLowerCase();
-    if (!code || !RELAY_KINDS.includes(kind)) {
+    const match = /^r?(\d{1,2})(?:\s*-\s*r?(\d{1,2}))?\s*(?:[:=]\s*([a-z]+))?$/i.exec(text);
+    const first = match ? relayCode(`r${match[1]}`) : undefined;
+    const last = match ? relayCode(`r${match[2] ?? match[1]}`) : undefined;
+    const kind = (match?.[3] ?? 'switch').toLowerCase();
+    const from = Number(match?.[1]);
+    const to = Number(match?.[2] ?? match?.[1]);
+    if (!first || !last || to < from || !RELAY_KINDS.includes(kind)) {
       errors.push(text.slice(0, 20));
       continue;
     }
-    relays.set(code, kind);
+    for (let n = from; n <= to; n += 1) relays.set(`r${n}`, kind);
   }
   return { relays, errors: errors.slice(0, 10) };
 }
@@ -204,6 +207,8 @@ export function normalizeConfig(raw = {}) {
     // Set by src/hub.js: the address of an earlier slot (one IPX800, one lane of requests).
     duplicateOf: Number.isInteger(raw?.duplicate_of) ? raw.duplicate_of : undefined,
     pollInterval: clamp(number(raw?.poll_interval), POLL_INTERVAL, DEFAULTS.poll_interval),
+    // The faster pace of the inputs, in ms; undefined (empty, not a number) = pollInterval.
+    inputsPollMs: clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, undefined),
     language: LANGUAGES.includes(language) ? language : DEFAULTS.language,
   };
 }
@@ -212,13 +217,13 @@ export function normalizeConfig(raw = {}) {
  * Up to SLOTS IPX800 V3 in one integration (Gladys runs one instance of it).
  * The first one has the manifest keys `host`, `username`, `password`,
  * `relays`, `extensions`; the n-th one has them with `_<n>` (`host_2`...).
- * The port goes in the address (`192.168.1.51:8080`). The poll interval and
+ * The port goes in the address (`192.168.1.51:8080`). The poll intervals and
  * the language are shared.
  */
 export const SLOTS = 3;
 
 const SLOT_KEYS = ['host', 'username', 'password', 'relays', 'extensions'];
-const SHARED_KEYS = ['poll_interval', 'language'];
+const SHARED_KEYS = ['poll_interval', 'inputs_poll_ms', 'language'];
 
 /** The configuration of one slot, in the shape of the first one (for normalizeConfig). */
 export function slotConfig(raw, slot) {
@@ -275,3 +280,7 @@ export const sessionKey = (config) =>
     config.addressError,
     config.duplicateOf,
   ]);
+
+/** The time between two rounds (ms): the poll interval, or the pace of the inputs when faster. */
+export const roundInterval = (config) =>
+  Math.min(config.pollInterval * 1000, config.inputsPollMs ?? Infinity);

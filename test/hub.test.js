@@ -107,6 +107,7 @@ test('slots: ids, routing of the external ids, configuration of each slot', () =
     relays: 'R1, R2',
     extensions: undefined,
     poll_interval: undefined,
+    inputs_poll_ms: undefined,
     language: undefined,
   });
   assert.equal(slotConfig(CONFIG, 1), CONFIG);
@@ -138,7 +139,7 @@ test('two IPX800 V3: their own devices, each command to its own IPX800 only, its
   const v4Name = gladys.fake.discoveredDevices.find(
     (d) => d.external_id === 'ext:ipx:ipx2:relay:r2',
   ).name;
-  assert.equal(v4Name, 'IPX800 n°2 · Relais 2 (R2)');
+  assert.equal(v4Name, 'IPX800V3-2-R2');
   const r1 = await create('relay:r1');
   const v4r1 = await create('ipx2:relay:r1');
   assert.equal((await set(v4r1, 'switch', 1)).success, true);

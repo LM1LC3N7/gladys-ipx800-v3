@@ -52,7 +52,7 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 import { createLogger } from '@gladysassistant/integration-sdk';
-import { credentialsOf, isComplete, normalizeConfig, sessionKey } from './config.js';
+import { credentialsOf, isComplete, normalizeConfig, roundInterval, sessionKey } from './config.js';
 import { FEATURES as F, KINDS, LIMITS, TIMINGS } from './constants.js';
 import { buildDevice, idsOf, parseExternalId, targetStates } from './devices.js';
 import { ERRORS, T, age, both, describe, join, listOf, reasonOf, shownCode, word } from './i18n.js';
@@ -141,6 +141,10 @@ export class IpxApp {
     this.model = new Map();
     this.round = undefined;
     this.lastReadAt = undefined;
+    /** When the time of an attempt last went to /data (monotonic; fast rounds only). */
+    this.attemptSavedAt = undefined;
+    /** What the last successful save wrote (a fast round with nothing new writes nothing). */
+    this.savedJson = undefined;
     this.pause = undefined;
     this.failures = 0;
     this.offline = false;
@@ -471,6 +475,8 @@ export class IpxApp {
     if (saved.lastAttemptAt !== null) {
       // Whatever the controller: never two reads within an interval.
       this.lastReadAt = mono - (now - saved.lastAttemptAt);
+      // Fast rounds: the attempt in /data may be up to attemptSaveEvery older than the last one.
+      if (this.fast) this.lastReadAt += TIMINGS.attemptSaveEvery;
     }
     if (saved.key !== this.config.key) {
       // Another controller: its pause, refusal and guards are not this one's.
@@ -612,7 +618,7 @@ export class IpxApp {
     if (this.dropUnlistedGuards()) {
       await this.saveMemory();
     }
-    if (next.pollInterval !== previous.pollInterval) {
+    if (roundInterval(next) !== roundInterval(previous)) {
       this.schedule();
     }
     this.published = undefined;
@@ -762,6 +768,7 @@ export class IpxApp {
       return answer.value ? true : this.storeFailed('saving the state to', { code: 'error' });
     }
     this.syncMemory();
+    const json = JSON.stringify(this.memory);
     const entry = { at: this.monotonic(), promise: this.store.save(this.memory) };
     this.saving = entry;
     this.saveAgain = false;
@@ -779,6 +786,7 @@ export class IpxApp {
     try {
       const answer = await this.bounded(entry.promise);
       if (answer.late) return this.storeFailed('writing', { code: 'timeout' });
+      this.savedJson = json;
       this.storeLost = false;
       if (this.saveFailed) {
         this.saveFailed = false;
@@ -793,6 +801,24 @@ export class IpxApp {
     }
   }
 
+  /**
+   * After a fast round: written only when the state changed since the last successful save
+   * (the owner, guards, pause or refusal); true when it is on /data.
+   */
+  async saveIfChanged() {
+    if (
+      this.fast &&
+      this.memoryLoaded &&
+      !this.saving &&
+      !this.saveFailed &&
+      !this.storeUnreadable
+    ) {
+      this.syncMemory();
+      if (JSON.stringify(this.memory) === this.savedJson) return true;
+    }
+    return this.saveMemory();
+  }
+
   async flush() {
     await this.publisher
       .flush()
@@ -802,7 +828,12 @@ export class IpxApp {
   // --- Pace --------------------------------------------------------------------
 
   get interval() {
-    return this.config.pollInterval * 1000;
+    return roundInterval(this.config);
+  }
+
+  /** Rounds faster than the poll interval allows (inputs_poll_ms): /data spared. */
+  get fast() {
+    return this.interval < TIMINGS.attemptSaveEvery;
   }
 
   /** The rest of the pause (ms), capped at every use; 0 when none. */
@@ -883,10 +914,18 @@ export class IpxApp {
     }
     const gone = () => generation !== this.generation;
     this.lastReadAt = mono;
-    // Kept BEFORE the read: a restart during it never reads again sooner.
-    this.memory.lastAttemptAt = this.now();
-    await this.saveMemory();
-    if (gone()) return;
+    // Kept BEFORE the read: a restart during it never reads again sooner. Fast rounds: at
+    // most every attemptSaveEvery (a restart adds it to its wait, see adoptMemory).
+    if (
+      !this.fast ||
+      this.attemptSavedAt === undefined ||
+      mono - this.attemptSavedAt >= TIMINGS.attemptSaveEvery
+    ) {
+      this.attemptSavedAt = mono;
+      this.memory.lastAttemptAt = this.now();
+      await this.saveMemory();
+      if (gone()) return;
+    }
     let result;
     try {
       result = await this.readRound(client, mono);
@@ -951,7 +990,7 @@ export class IpxApp {
     // Which IPX800 answered, against the owner of the devices, before anything is published.
     this.applyVerdict(this.judge());
     this.applyRead(at);
-    await this.saveMemory();
+    await this.saveIfChanged();
     await this.setStatus(this.statusFlag(), this.statusMessage());
     await this.publishDevices();
     await this.flush();

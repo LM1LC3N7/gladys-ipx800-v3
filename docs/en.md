@@ -19,7 +19,7 @@ For an IPX800 V4 or V5, use the **IPX800** integration (another API).
 2. If the IPX800 protects its pages with a user and a password (Network >
    Security), enter both; leave them empty otherwise.
 3. On the same page, list in "Relays Gladys may drive" the relays Gladys
-   must drive, and those only (e.g. `R1, R2`; see "Relays" below: never a
+   must drive, and those only (e.g. `R1, R2`, or a range `R1-R8`; see "Relays" below: never a
    pump, a ventilation, a door strike…). If the IPX800 has extensions (X-880,
    X-24D), list them in "Extensions", e.g. `R9-R16, D9-D24`. Then save.
 4. "Test the connection" reads the IPX800 at once (once an interval has
@@ -41,16 +41,23 @@ never written in the logs nor in the files of the integration.
 
 ## What you get
 
-| On the IPX800                                               | In Gladys                                     | Code (in the name) |
-| ----------------------------------------------------------- | --------------------------------------------- | ------------------ |
-| Relay 1 to 8 (up to 32)                                     | read only, or a switch / light if you list it | `R3`               |
-| Input 1 to 8 (up to 32)                                     | a binary input (read only)                    | `D3`               |
-| Analog input 1 to 4, TC4012, TC100 or SHT temperature probe | temperature (°C)                              | `A1`               |
-| Analog input 1 to 4, SHT humidity probe                     | humidity (%)                                  | `A2`               |
+| On the IPX800                                                | In Gladys                                     | Code (in the name) |
+| ------------------------------------------------------------ | --------------------------------------------- | ------------------ |
+| Relay 1 to 8 (up to 32)                                      | read only, or a switch / light if you list it | `R3`               |
+| Input 1 to 8 (up to 32)                                      | a binary input (read only)                    | `D3`               |
+| Analog input 1 to 16, TC4012, TC100 or SHT temperature probe | temperature (°C)                              | `A1`               |
+| Analog input 1 to 16, SHT humidity probe                     | humidity (%)                                  | `A2`               |
+
+A new device is named after its code: `IPX800V3-R1`, `IPX800V3-D1`,
+`IPX800V3-A1` (`IPX800V3-2-R1` for the IPX800 #2), the same in both
+languages; rename it as you like, the name you give is kept.
 
 The IPX800 V3 answers 32 relays and 32 inputs, wired or not: the
 integration shows its 8 relays and 8 inputs, and what you list in
-"Extensions". An input is "on" when the IPX800 reads it closed (`dn`).
+"Extensions". An input is "on" (1) when the IPX800 reads it connected
+(`dn` in `status.xml`), "off" (0) when not (`up`). Its 16 analog inputs are
+all read; one becomes a device only with a probe type of the table. The
+date and time of the IPX800 (`day`, `time0`) are not read.
 
 An analog input is published only when the probe type chosen on the IPX800
 is one of those in the table; its value is computed with the GCE formulas
@@ -62,7 +69,15 @@ the inputs concerned. A raw value of 0 (nothing wired) or 1023 (open input)
 is no measurement.
 
 The IPX800 is read every 10 seconds by default (5 s at least), through its
-page `globalstatus.xml`, or `status.xml` when that one is missing. A value
+page `globalstatus.xml`, or `status.xml` when that one is missing. To see an
+input change sooner, "Read the inputs every (milliseconds)" reads it faster:
+1000 ms (1 s) at least, as its small web server answers one request at a
+time. Each read is one request for the whole page (relays and analog inputs
+too), the next one only once the previous one is answered; a slow IPX800
+slows the reads down, never stacks them. At that pace the integration
+writes its state file in `/data` only when something changed (and the time
+of the last read every 5 s at most), so that the disk of Gladys is not
+written every second. A value
 the IPX800 does not give (missing, a text, out of range) is not published:
 never as 0.
 
@@ -71,8 +86,8 @@ never as 0.
 Keep the first one in the fields at the top, and put the other one in
 **"IPX800 #2"** (address with `:port` if needed, user and password, its
 relays Gladys may drive, its extensions), a third one in "IPX800 #3". Each
-has its own devices in Discover ("IPX800 #2 · Relay 1 (R1)"), its own list
-of relays and its own line in the status. The poll interval and the
+has its own devices in Discover (`IPX800V3-2-R1`), its own list
+of relays and its own line in the status. The read intervals and the
 language are shared.
 
 **Do not change the address of a slot to try another IPX800**: the devices
@@ -119,7 +134,8 @@ apart from the first one.
 
 A relay you do not list is **read only**. To drive one from Gladys, list it
 in "Relays Gladys may drive", e.g. `R1, R3:light` (`:light` makes it a
-light, a switch otherwise), preferably before creating it in Discover;
+light, a switch otherwise), or a range, `R1-R8` (`R1-R8:light`: all lights;
+a range backwards or past R32 lists none of it), preferably before creating it in Discover;
 already created, click "Update" on it in Discover. A switch or a light obeys
 every "turn everything off" of Google, Alexa, the MCP and the scenes: never
 list a pump, a freezer, a ventilation, a heating, a door strike nor a valve.

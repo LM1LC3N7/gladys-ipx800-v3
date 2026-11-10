@@ -21,8 +21,8 @@
         "fr": "Votre IPX800 V3"
       },
       "description": {
-        "en": "Brings up to three GCE Electronics IPX800 V3 into Gladys through their local HTTP interface: relays (read only unless you list them below), digital inputs, analog temperature and humidity sensors. A relay listed is switched off first, whatever else is going on (see the guide for the limits). Each IPX800 keeps its own devices: another address never gets their commands. Never tested with a real device. Not affiliated with GCE Electronics.",
-        "fr": "Amène dans Gladys jusqu’à trois IPX800 V3 de GCE Electronics par leur interface HTTP locale : relais (en lecture seule sauf ceux listés ci-dessous), entrées, capteurs analogiques de température et d’humidité. Un relais listé s’éteint en premier, quoi qu’il se passe par ailleurs (limites dans le guide). Chaque IPX800 garde ses propres appareils : une autre adresse ne reçoit jamais leurs commandes. Jamais testé avec un vrai appareil. Sans lien avec GCE Electronics."
+        "en": "Brings up to three GCE Electronics IPX800 V3 into Gladys through their local HTTP interface: relays (read only unless you list them below), digital inputs, analog temperature and humidity sensors (up to 16). A relay listed is switched off first, whatever else is going on (see the guide for the limits). Each IPX800 keeps its own devices: another address never gets their commands. Never tested with a real device. Not affiliated with GCE Electronics.",
+        "fr": "Amène dans Gladys jusqu’à trois IPX800 V3 de GCE Electronics par leur interface HTTP locale : relais (en lecture seule sauf ceux listés ci-dessous), entrées, capteurs analogiques de température et d’humidité (jusqu’à 16). Un relais listé s’éteint en premier, quoi qu’il se passe par ailleurs (limites dans le guide). Chaque IPX800 garde ses propres appareils : une autre adresse ne reçoit jamais leurs commandes. Jamais testé avec un vrai appareil. Sans lien avec GCE Electronics."
       },
       "links": [
         {
@@ -92,8 +92,8 @@
         "fr": "Relais pilotables par Gladys"
       },
       "description": {
-        "en": "The other relays are read only. R1 to R8, up to R32 with extensions (codes as in the device names); add :light for a light, e.g. \"R1, R3:light\". A relay listed here obeys every \"turn everything off\" of Google, Alexa, the MCP and the scenes: never list a pump, a freezer, a ventilation, a heating, a door strike nor a valve, nor a relay set to pulse mode on the IPX800 (Ta / Tb: a gate), which would likely stay on. List them before creating them in Discover; a relay already created stays read only until you click \"Update\" on it in Discover.",
-        "fr": "Les autres relais sont en lecture seule. R1 à R8, jusqu’à R32 avec des extensions (codes comme dans les noms des appareils) ; ajoutez :light pour une lumière, par ex. « R1, R3:light ». Un relais listé ici obéit à tout « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne, ni un relais réglé en mode impulsion sur l’IPX800 (Ta / Tb : un portail), qui resterait sans doute collé. Listez-les avant de les créer dans Découverte ; un relais déjà créé reste en lecture seule jusqu’à ce que vous cliquiez « Mettre à jour » sur lui dans Découverte."
+        "en": "The other relays are read only. R1 to R8, up to R32 with extensions (codes as in the device names); one relay or a range, add :light for a light, e.g. \"R1-R8\" or \"R1, R3:light\". A relay listed here obeys every \"turn everything off\" of Google, Alexa, the MCP and the scenes: never list a pump, a freezer, a ventilation, a heating, a door strike nor a valve, nor a relay set to pulse mode on the IPX800 (Ta / Tb: a gate), which would likely stay on. List them before creating them in Discover; a relay already created stays read only until you click \"Update\" on it in Discover.",
+        "fr": "Les autres relais sont en lecture seule. R1 à R8, jusqu’à R32 avec des extensions (codes comme dans les noms des appareils) ; un relais ou une plage, ajoutez :light pour une lumière, par ex. « R1-R8 » ou « R1, R3:light ». Un relais listé ici obéit à tout « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne, ni un relais réglé en mode impulsion sur l’IPX800 (Ta / Tb : un portail), qui resterait sans doute collé. Listez-les avant de les créer dans Découverte ; un relais déjà créé reste en lecture seule jusqu’à ce que vous cliquiez « Mettre à jour » sur lui dans Découverte."
       },
       "placeholder": {
         "en": "R1, R3:light",
@@ -141,6 +141,21 @@
       "default": 10,
       "min": 5,
       "max": 300
+    },
+    {
+      "key": "inputs_poll_ms",
+      "type": "number",
+      "label": {
+        "en": "Read the inputs every (milliseconds)",
+        "fr": "Lecture des entrées toutes les (millisecondes)"
+      },
+      "description": {
+        "en": "Optional, to see an input change sooner: 1000 ms (1 s) at least. Empty: the interval above. The whole status page of the IPX800 V3 (relays and analog inputs too) is read in one request at this pace, one request at a time, so that its small web server keeps up.",
+        "fr": "Facultatif, pour voir plus vite le changement d’une entrée : 1000 ms (1 s) au moins. Vide : l’intervalle ci-dessus. Toute la page d’état de l’IPX800 V3 (relais et entrées analogiques compris) est lue en une requête à ce rythme, une requête à la fois, pour que son petit serveur web suive."
+      },
+      "required": false,
+      "min": 1000,
+      "max": 300000
     },
     {
       "key": "language",
@@ -235,8 +250,8 @@
         "fr": "Relais pilotables par Gladys de l’IPX800 n°2"
       },
       "description": {
-        "en": "The other relays are read only. R1 to R8, up to R32 with extensions (codes as in the device names); add :light for a light, e.g. \"R1, R3:light\". A relay listed here obeys every \"turn everything off\" of Google, Alexa, the MCP and the scenes: never list a pump, a freezer, a ventilation, a heating, a door strike nor a valve, nor a relay set to pulse mode on the IPX800 (Ta / Tb: a gate), which would likely stay on. List them before creating them in Discover; a relay already created stays read only until you click \"Update\" on it in Discover.",
-        "fr": "Les autres relais sont en lecture seule. R1 à R8, jusqu’à R32 avec des extensions (codes comme dans les noms des appareils) ; ajoutez :light pour une lumière, par ex. « R1, R3:light ». Un relais listé ici obéit à tout « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne, ni un relais réglé en mode impulsion sur l’IPX800 (Ta / Tb : un portail), qui resterait sans doute collé. Listez-les avant de les créer dans Découverte ; un relais déjà créé reste en lecture seule jusqu’à ce que vous cliquiez « Mettre à jour » sur lui dans Découverte."
+        "en": "The other relays are read only. R1 to R8, up to R32 with extensions (codes as in the device names); one relay or a range, add :light for a light, e.g. \"R1-R8\" or \"R1, R3:light\". A relay listed here obeys every \"turn everything off\" of Google, Alexa, the MCP and the scenes: never list a pump, a freezer, a ventilation, a heating, a door strike nor a valve, nor a relay set to pulse mode on the IPX800 (Ta / Tb: a gate), which would likely stay on. List them before creating them in Discover; a relay already created stays read only until you click \"Update\" on it in Discover.",
+        "fr": "Les autres relais sont en lecture seule. R1 à R8, jusqu’à R32 avec des extensions (codes comme dans les noms des appareils) ; un relais ou une plage, ajoutez :light pour une lumière, par ex. « R1-R8 » ou « R1, R3:light ». Un relais listé ici obéit à tout « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne, ni un relais réglé en mode impulsion sur l’IPX800 (Ta / Tb : un portail), qui resterait sans doute collé. Listez-les avant de les créer dans Découverte ; un relais déjà créé reste en lecture seule jusqu’à ce que vous cliquiez « Mettre à jour » sur lui dans Découverte."
       },
       "placeholder": {
         "en": "R1, R3:light",
@@ -324,8 +339,8 @@
         "fr": "Relais pilotables par Gladys de l’IPX800 n°3"
       },
       "description": {
-        "en": "The other relays are read only. R1 to R8, up to R32 with extensions (codes as in the device names); add :light for a light, e.g. \"R1, R3:light\". A relay listed here obeys every \"turn everything off\" of Google, Alexa, the MCP and the scenes: never list a pump, a freezer, a ventilation, a heating, a door strike nor a valve, nor a relay set to pulse mode on the IPX800 (Ta / Tb: a gate), which would likely stay on. List them before creating them in Discover; a relay already created stays read only until you click \"Update\" on it in Discover.",
-        "fr": "Les autres relais sont en lecture seule. R1 à R8, jusqu’à R32 avec des extensions (codes comme dans les noms des appareils) ; ajoutez :light pour une lumière, par ex. « R1, R3:light ». Un relais listé ici obéit à tout « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne, ni un relais réglé en mode impulsion sur l’IPX800 (Ta / Tb : un portail), qui resterait sans doute collé. Listez-les avant de les créer dans Découverte ; un relais déjà créé reste en lecture seule jusqu’à ce que vous cliquiez « Mettre à jour » sur lui dans Découverte."
+        "en": "The other relays are read only. R1 to R8, up to R32 with extensions (codes as in the device names); one relay or a range, add :light for a light, e.g. \"R1-R8\" or \"R1, R3:light\". A relay listed here obeys every \"turn everything off\" of Google, Alexa, the MCP and the scenes: never list a pump, a freezer, a ventilation, a heating, a door strike nor a valve, nor a relay set to pulse mode on the IPX800 (Ta / Tb: a gate), which would likely stay on. List them before creating them in Discover; a relay already created stays read only until you click \"Update\" on it in Discover.",
+        "fr": "Les autres relais sont en lecture seule. R1 à R8, jusqu’à R32 avec des extensions (codes comme dans les noms des appareils) ; un relais ou une plage, ajoutez :light pour une lumière, par ex. « R1-R8 » ou « R1, R3:light ». Un relais listé ici obéit à tout « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne, ni un relais réglé en mode impulsion sur l’IPX800 (Ta / Tb : un portail), qui resterait sans doute collé. Listez-les avant de les créer dans Découverte ; un relais déjà créé reste en lecture seule jusqu’à ce que vous cliquiez « Mettre à jour » sur lui dans Découverte."
       },
       "placeholder": {
         "en": "R1, R3:light",

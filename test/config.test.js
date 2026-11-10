@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { INPUTS_POLL_MS } from '../src/constants.js';
 import {
   DEFAULTS,
   credentialsOf,
@@ -10,6 +11,7 @@ import {
   parsePassword,
   parseRelays,
   parseUser,
+  roundInterval,
   sessionKey,
   slotConfig,
   slotTyped,
@@ -69,6 +71,49 @@ test('relays Gladys may drive: R1-R32; kinds switch or light; errors reported', 
   assert.deepEqual(errors, ['R33', 'R0', 'X8R12-1', 'R2:pump']);
 });
 
+test('relays Gladys may drive: a range R1-R8 (cce66), with a kind; a wrong range lists nothing of it', () => {
+  const { relays, errors } = parseRelays('R1-R8, 9 - 10:light, r12-R12');
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    [...relays.keys()],
+    ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r12'],
+  );
+  assert.equal(relays.get('r8'), 'switch');
+  assert.equal(relays.get('r9'), 'light');
+  assert.equal(relays.get('r10'), 'light');
+  const wrong = parseRelays('R8-R1, R30-R33, R0-R2, R1-, -R3, R1-R2-R3, R1-D4, R1-R2:pump');
+  assert.equal(wrong.relays.size, 0, 'backwards, past R32, from R0, half or another kind');
+  assert.deepEqual(wrong.errors, [
+    'R8-R1',
+    'R30-R33',
+    'R0-R2',
+    'R1-',
+    '-R3',
+    'R1-R2-R3',
+    'R1-D4',
+    'R1-R2:pump',
+  ]);
+  assert.equal(parseRelays('R1-R32').relays.size, 32);
+});
+
+test('the pace of the inputs: ms, 1000 to 300000; empty = the poll interval; the round takes the faster', () => {
+  assert.equal(normalizeConfig({}).inputsPollMs, undefined);
+  assert.equal(normalizeConfig({ inputs_poll_ms: '' }).inputsPollMs, undefined);
+  assert.equal(normalizeConfig({ inputs_poll_ms: 'abc' }).inputsPollMs, undefined);
+  assert.equal(normalizeConfig({ inputs_poll_ms: 1 }).inputsPollMs, INPUTS_POLL_MS.min);
+  assert.equal(
+    normalizeConfig({ inputs_poll_ms: 0 }).inputsPollMs,
+    1000,
+    '0 is no "as fast as possible"',
+  );
+  assert.equal(normalizeConfig({ inputs_poll_ms: 10 ** 9 }).inputsPollMs, INPUTS_POLL_MS.max);
+  assert.equal(normalizeConfig({ inputs_poll_ms: '1500.4' }).inputsPollMs, 1500);
+  assert.equal(INPUTS_POLL_MS.min, 1000, 'one request a second at most for the small web server');
+  assert.equal(roundInterval(normalizeConfig({})), 10_000);
+  assert.equal(roundInterval(normalizeConfig({ inputs_poll_ms: 2000 })), 2000);
+  assert.equal(roundInterval(normalizeConfig({ poll_interval: 5, inputs_poll_ms: 60_000 })), 5000);
+});
+
 test('extensions: ranges by prefix, bounded to 32', () => {
   const { codes, errors } = parseExtensions('R9-R16, D9-24, R12, R33, R9-D10, D5-D2, A5, FP1');
   assert.equal(codes.size, 8 + 16);
@@ -94,7 +139,14 @@ test('defaults; a session is the address, port and credentials; the key holds no
 });
 
 test('slots: the keys of slot n with _n, the poll interval and language shared', () => {
-  const raw = { host: 'a', host_2: 'b', password_3: 'x', poll_interval: 20, relays_2: 'R2' };
+  const raw = {
+    host: 'a',
+    host_2: 'b',
+    password_3: 'x',
+    poll_interval: 20,
+    inputs_poll_ms: 1500,
+    relays_2: 'R2',
+  };
   assert.deepEqual(slotConfig(raw, 2), {
     host: 'b',
     username: undefined,
@@ -102,6 +154,7 @@ test('slots: the keys of slot n with _n, the poll interval and language shared',
     relays: 'R2',
     extensions: undefined,
     poll_interval: 20,
+    inputs_poll_ms: 1500,
     language: undefined,
   });
   assert.equal(slotTyped(raw, 2), true);

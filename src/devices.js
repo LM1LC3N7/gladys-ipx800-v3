@@ -30,7 +30,7 @@ import {
   DEVICE_FEATURE_UNITS as U,
 } from '@gladysassistant/integration-sdk';
 import { FEATURES as F, KINDS, RANGES } from './constants.js';
-import { FEATURE_NAMES, slotName, targetName, word } from './i18n.js';
+import { FEATURE_NAMES, deviceName, word } from './i18n.js';
 
 const KIND_LIST = Object.values(KINDS);
 
@@ -184,7 +184,7 @@ export function targetStates(target, keys) {
 export function buildDevice(gladys, target, { language, relayKind, created, slot = 1 }) {
   const ids = idsOf(gladys, target.kind, target.code);
   const built = {
-    name: created?.name ?? word(slotName(slot, targetName(target)), language),
+    name: created?.name ?? deviceName(slot, target.code),
     external_id: ids.device,
     model: modelOf(target.code),
     should_poll: false,

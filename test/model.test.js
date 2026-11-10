@@ -104,10 +104,12 @@ test('analog inputs: the published sensor types converted; 0, 1023, a text or a 
 test('the listed targets, the kinds and the write queries', () => {
   const codes = v3Codes(new Set(['r9', 'd12']), new Map([['r20', 'switch']]));
   assert.ok(codes.has('r8') && codes.has('d8') && codes.has('a4') && codes.has('r20'));
-  assert.ok(codes.has('r9') && codes.has('d12') && !codes.has('r10') && !codes.has('a5'));
+  assert.ok(codes.has('r9') && codes.has('d12') && !codes.has('r10') && !codes.has('d9'));
+  assert.ok(codes.has('a16') && !codes.has('a17'), 'the 16 analog inputs of status.xml');
   assert.equal(v3Kind('r32'), 'relay');
   assert.equal(v3Kind('r33'), undefined);
-  assert.equal(v3Kind('a5'), undefined);
+  assert.equal(v3Kind('a16'), 'analog');
+  assert.equal(v3Kind('a17'), undefined);
   assert.equal(v3Kind('d0'), undefined);
   assert.equal(v3WriteQuery({ kind: 'relay', n: 3 }, 1), 'set3=1');
   assert.equal(v3WriteQuery({ kind: 'relay', n: 32 }, 0), 'set32=0');

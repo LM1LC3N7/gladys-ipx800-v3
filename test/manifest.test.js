@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { DEFAULTS, LANGUAGES } from '../src/config.js';
-import { ACTIONS, POLL_INTERVAL } from '../src/constants.js';
+import { ACTIONS, INPUTS_POLL_MS, POLL_INTERVAL } from '../src/constants.js';
 
 /** The rule of the core for supported_options, when its clone is there (dev VM). */
 const CORE_NORMALIZE = '/home/claude/code/Gladys/server/utils/normalizeSupportedOptions.js';
@@ -126,6 +126,16 @@ test('the configuration matches the code; the password a secret without default'
     [fields.poll_interval.min, fields.poll_interval.max, fields.poll_interval.default],
     [POLL_INTERVAL.min, POLL_INTERVAL.max, POLL_INTERVAL.default],
   );
+  assert.deepEqual(
+    [fields.inputs_poll_ms.min, fields.inputs_poll_ms.max, fields.inputs_poll_ms.default],
+    [INPUTS_POLL_MS.min, INPUTS_POLL_MS.max, undefined],
+    'empty by default: the poll interval',
+  );
+  assert.equal(fields.inputs_poll_ms.required, false);
+  for (const key of ['relays', 'relays_2', 'relays_3']) {
+    assert.match(fields[key].description.en, /R1-R8/, key);
+    assert.match(fields[key].description.fr, /R1-R8/, key);
+  }
   for (const field of manifest.config_schema) {
     if (field.placeholder !== undefined)
       assert.equal(typeof field.placeholder, 'object', field.key);

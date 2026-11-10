@@ -11,14 +11,20 @@ import { httpServer, reply } from '../kit/index.mjs';
 import { applyPreset, basic, v3State, v3Xml } from './xml.js';
 
 /** `{ srv, state, writes(), address }`: close with `srv.close()`. */
-export async function httpIpx({ user = '', password = '', latencyMs = 3, global = true } = {}) {
+export async function httpIpx({
+  user = '',
+  password = '',
+  latencyMs = 3,
+  global = true,
+  statusXml = v3Xml,
+} = {}) {
   const state = { ...v3State(), user, password, global, writes: [] };
   const route = (r) => {
     if (state.user !== '' && r.headers.authorization !== basic(state.user, state.password)) {
       return reply(401, '<html>401 Unauthorized</html>');
     }
-    if (r.path === '/globalstatus.xml' && state.global) return reply(200, v3Xml(state));
-    if (r.path === '/status.xml') return reply(200, v3Xml(state));
+    if (r.path === '/globalstatus.xml' && state.global) return reply(200, statusXml(state));
+    if (r.path === '/status.xml') return reply(200, statusXml(state));
     if (r.path === '/preset.htm') {
       const query = new URLSearchParams(r.url.split('?')[1] ?? '');
       state.writes.push(query.toString());

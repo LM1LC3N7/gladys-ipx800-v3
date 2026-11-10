@@ -10,6 +10,23 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Added
+
+- After cce66's test on his IPX800 V3 (firmware 3.05.69, forum t/11448):
+  "Read the inputs every (milliseconds)", to see an input change sooner
+  (1000 ms at least; empty: the read interval); one request at a time, the
+  whole status page each time, and `/data` written only when something
+  changed at that pace.
+- A range of relays to drive: `R1-R8` (`R1-R8:light`).
+- The 16 analog inputs of the IPX800 V3 (A1 to A16), each a device only with
+  a published probe type.
+
+### Changed
+
+- New devices are named after their code: `IPX800V3-R1`, `IPX800V3-D1`,
+  `IPX800V3-A1` (`IPX800V3-2-R1` for the IPX800 #2); devices already
+  created keep their name.
+
 ## [0.1.1] - 2026-10-30
 
 ### Added

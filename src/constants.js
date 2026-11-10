@@ -78,10 +78,19 @@ export const ACTIONS = {
 export const POLL_INTERVAL = { min: 5, max: 300, default: 10 };
 
 /**
- * Sizes of the V3: 32 relays and 32 inputs in its answer (its own 8 of each,
- * the others with X-880 / X-24D extensions, wired or not); 4 analog inputs.
+ * The faster pace of the inputs (`inputs_poll_ms`, in ms; empty = the interval above). One
+ * round reads the whole status page (relays, inputs, analog inputs) in one request, one
+ * request at a time: 1 s at least, for the small web server of the IPX800 V3.
  */
-export const LIMITS_V3 = { relays: 32, inputs: 32, analogs: 4, own: 8 };
+export const INPUTS_POLL_MS = { min: 1_000, max: 300_000 };
+
+/**
+ * Sizes of the V3: 32 relays and 32 inputs in its answer (its own 8 of each,
+ * the others with X-880 / X-24D extensions, wired or not); 16 analog inputs
+ * (`analog0`..`analog15` in the `status.xml` of firmware 3.05.69, cce66),
+ * all read: one becomes a device only with a published probe type.
+ */
+export const LIMITS_V3 = { relays: 32, inputs: 32, analogs: 16, own: 8 };
 
 /** A measurement out of these ranges is not one (never published). */
 export const RANGES = {
@@ -153,6 +162,12 @@ export const TIMINGS = {
   configWait: 3 * SECOND,
   /** A read or a save of /data waited this long at most (a frozen disk holds nothing). */
   storeWait: 1_500,
+  /**
+   * Rounds faster than this (inputs_poll_ms): the time of the attempt goes to /data before a
+   * read at most this often, a restart adds it to the wait (never sooner than the interval),
+   * and the state after a round is written only when it changed (no disk write a second).
+   */
+  attemptSaveEvery: 5 * SECOND,
   /** "Attach the devices": the second click within this. */
   attachConfirm: MINUTE,
 };

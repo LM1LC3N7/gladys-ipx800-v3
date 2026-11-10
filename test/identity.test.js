@@ -270,7 +270,11 @@ test('a command waiting in the queue is refused right before it leaves when anot
   const first = gladys.fake.setValue(r1, { external_id: F('relay', 'r1', 'switch') }, 1);
   const second = gladys.fake.setValue(r2, { external_id: F('relay', 'r2', 'switch') }, 1);
   const flip = (async () => {
-    while (a.writes().length === 0) await new Promise((r) => setImmediate(r));
+    // Bounded: a regression that never writes fails here, it never spins forever.
+    for (let i = 0; a.writes().length === 0; i += 1) {
+      if (i > 100_000) throw new Error('the first write never left');
+      await new Promise((r) => setImmediate(r));
+    }
     // The configuration changes to another address while the first write is in flight.
     await gladys.fake.configUpdated(THERE);
   })();
