@@ -115,7 +115,8 @@ export function relayCode(text) {
  * The relays Gladys may drive: `R1, R3:light`, or a range `R1-R8` (`R1-R8:light`) -> Map(code
  * -> kind). A bare number is a relay (`3` = `R3`, `1-8` = `R1-R8`); no kind = a switch. Every
  * other relay is read only. Wrong entries (a range backwards or past R32 included: nothing of
- * it is listed) are reported, not fatal.
+ * it is listed) are reported, not fatal; so is an entry listing a relay already listed with
+ * another kind (`R1-R8, R5:light`: R5 keeps its first kind, the switch).
  */
 export function parseRelays(raw) {
   const relays = new Map();
@@ -133,7 +134,13 @@ export function parseRelays(raw) {
       errors.push(text.slice(0, 20));
       continue;
     }
-    for (let n = from; n <= to; n += 1) relays.set(`r${n}`, kind);
+    let conflict = false;
+    for (let n = from; n <= to; n += 1) {
+      // A relay listed twice with another kind keeps its first one; the entry is reported.
+      if (relays.has(`r${n}`) && relays.get(`r${n}`) !== kind) conflict = true;
+      else relays.set(`r${n}`, kind);
+    }
+    if (conflict) errors.push(text.slice(0, 20));
   }
   return { relays, errors: errors.slice(0, 10) };
 }
@@ -207,8 +214,12 @@ export function normalizeConfig(raw = {}) {
     // Set by src/hub.js: the address of an earlier slot (one IPX800, one lane of requests).
     duplicateOf: Number.isInteger(raw?.duplicate_of) ? raw.duplicate_of : undefined,
     pollInterval: clamp(number(raw?.poll_interval), POLL_INTERVAL, DEFAULTS.poll_interval),
-    // The faster pace of the inputs, in ms; undefined (empty, not a number) = pollInterval.
-    inputsPollMs: clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, undefined),
+    // The faster pace of the inputs, in ms; undefined (0 or less, empty, not a number) =
+    // pollInterval: the Gladys form never sends an emptied number field, so 0 is the way back.
+    inputsPollMs:
+      number(raw?.inputs_poll_ms) > 0
+        ? clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, undefined)
+        : undefined,
     language: LANGUAGES.includes(language) ? language : DEFAULTS.language,
   };
 }

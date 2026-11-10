@@ -14,14 +14,22 @@ the notes of the version's GitHub Release.
 
 - After cce66's test on his IPX800 V3 (firmware 3.05.69, forum t/11448):
   "Read the inputs every (milliseconds)", to see an input change sooner
-  (1000 ms at least; empty: the read interval); one request at a time, the
-  whole status page each time, and `/data` written only when something
-  changed at that pace.
-- A range of relays to drive: `R1-R8` (`R1-R8:light`).
+  (1000 ms at least; 0: the read interval, as Gladys keeps a number field
+  that is emptied); one request at a time, the whole status page each time,
+  a rest after each answer at least as long as it took, and `/data` written
+  only when something changed at that pace.
+- A range of relays to drive: `R1-R8` (`R1-R8:light`). A range typed in
+  0.1.1 was refused there: after the update it lists its relays (those
+  already created stay read only until "Update" in Discover). A relay listed
+  twice with another kind keeps its first one, and the status names the
+  entry.
 - The 16 analog inputs of the IPX800 V3 (A1 to A16), each a device only with
   a published probe type.
 
 ### Changed
+
+- A switch-off the reads do not show is sent again 5 s apart at least
+  (still 3 times at most), whatever the read pace.
 
 - New devices are named after their code: `IPX800V3-R1`, `IPX800V3-D1`,
   `IPX800V3-A1` (`IPX800V3-2-R1` for the IPX800 #2); devices already

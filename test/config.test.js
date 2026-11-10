@@ -94,17 +94,30 @@ test('relays Gladys may drive: a range R1-R8 (cce66), with a kind; a wrong range
     'R1-R2:pump',
   ]);
   assert.equal(parseRelays('R1-R32').relays.size, 32);
+  const both = parseRelays('R1-R8, R5:light, R5');
+  assert.equal(both.relays.get('r5'), 'switch', 'the first kind kept');
+  assert.deepEqual(
+    both.errors,
+    ['R5:light'],
+    'the conflicting entry reported; R5 again is no conflict',
+  );
+  assert.equal(parseRelays('R5:light, R1-R8').relays.get('r5'), 'light');
+  assert.deepEqual(parseRelays('R5:light, R1-R8').errors, ['R1-R8']);
+  assert.equal(parseRelays('R5:light, R1-R8').relays.size, 8);
 });
 
-test('the pace of the inputs: ms, 1000 to 300000; empty = the poll interval; the round takes the faster', () => {
+test('the pace of the inputs: ms, 1000 to 300000; 0 (or empty) = the poll interval; the round takes the faster', () => {
   assert.equal(normalizeConfig({}).inputsPollMs, undefined);
   assert.equal(normalizeConfig({ inputs_poll_ms: '' }).inputsPollMs, undefined);
   assert.equal(normalizeConfig({ inputs_poll_ms: 'abc' }).inputsPollMs, undefined);
   assert.equal(normalizeConfig({ inputs_poll_ms: 1 }).inputsPollMs, INPUTS_POLL_MS.min);
+  assert.equal(normalizeConfig({ inputs_poll_ms: 0 }).inputsPollMs, undefined, '0: the interval');
+  assert.equal(normalizeConfig({ inputs_poll_ms: '0' }).inputsPollMs, undefined);
+  assert.equal(normalizeConfig({ inputs_poll_ms: -5 }).inputsPollMs, undefined);
   assert.equal(
-    normalizeConfig({ inputs_poll_ms: 0 }).inputsPollMs,
+    normalizeConfig({ inputs_poll_ms: 999 }).inputsPollMs,
     1000,
-    '0 is no "as fast as possible"',
+    'never faster than 1 s',
   );
   assert.equal(normalizeConfig({ inputs_poll_ms: 10 ** 9 }).inputsPollMs, INPUTS_POLL_MS.max);
   assert.equal(normalizeConfig({ inputs_poll_ms: '1500.4' }).inputsPollMs, 1500);

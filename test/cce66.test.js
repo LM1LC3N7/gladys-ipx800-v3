@@ -108,7 +108,21 @@ test('a created device keeps its name; the IPX800 n >= 2 gets its number in the 
   app.stop();
 });
 
-test('inputs_poll_ms: one round a second, never sooner, one request at a time; back to the interval when emptied', async () => {
+/**
+ * What the Gladys core saves from its form (front config-page/index.js: an empty or malformed
+ * number field is not sent; server saveConfigFromFront.js: only the keys received are
+ * written): an emptied number keeps its old value.
+ */
+const coreSave = (previous, form) => {
+  const sent = Object.fromEntries(
+    Object.entries(form).filter(
+      ([key, v]) => !(key === 'inputs_poll_ms' && (v === '' || v === null)),
+    ),
+  );
+  return { ...previous, ...sent };
+};
+
+test('inputs_poll_ms: one round a second, never sooner, one request at a time; 0 goes back to the interval', async () => {
   const world = captured();
   const config = { ...CONFIG, inputs_poll_ms: 1000 };
   const { app, gladys, start, wait } = await setup({ world, config });
@@ -123,16 +137,35 @@ test('inputs_poll_ms: one round a second, never sooner, one request at a time; b
     `never sooner than 1 s: ${gaps.join(', ')}`,
   );
   assert.equal(world.peak, 1, 'one request to the IPX at a time');
-  // A slow IPX (1.5 s an answer): the rounds wait for it, never two at once.
+  // A slow IPX (1.5 s an answer): the rounds wait for it, never two at once, and it rests
+  // after each answer at least as long as it took.
   world.latency = 1500;
-  await wait(10 * SECOND);
+  const slowFrom = rounds(world).length;
+  await wait(12 * SECOND);
   assert.equal(world.peak, 1);
+  const slow = rounds(world).slice(slowFrom);
+  const rests = slow.slice(1).map((r, i) => r.at - slow[i].end);
+  assert.ok(slow.length >= 3, `${slow.length} slow rounds`);
+  assert.ok(
+    rests.filter((g) => !Number.isNaN(g)).every((g) => g >= 1500 - 1),
+    `rests after a 1.5 s answer: ${rests.join(', ')}`,
+  );
   world.latency = 20;
-  await gladys.fake.configUpdated({ ...CONFIG, inputs_poll_ms: '' });
+  // The field emptied in Gladys: the core keeps 1000 (the pace stays fast, as the form shows).
+  let saved = coreSave(config, { ...CONFIG, inputs_poll_ms: '' });
+  assert.equal(saved.inputs_poll_ms, 1000);
+  await gladys.fake.configUpdated(saved);
+  await wait(3 * SECOND);
+  let from = rounds(world).length;
+  await wait(5 * SECOND);
+  assert.ok(rounds(world).length - from >= 4, 'emptied: still one round a second');
+  // 0 typed (the documented way back): one round per 10 s again.
+  saved = coreSave(saved, { ...CONFIG, inputs_poll_ms: 0 });
+  await gladys.fake.configUpdated(saved);
   await wait(2 * SECOND);
-  const settled = rounds(world).length;
+  from = rounds(world).length;
   await wait(9 * SECOND);
-  assert.ok(rounds(world).length - settled <= 1, 'back to one round per 10 s');
+  assert.ok(rounds(world).length - from <= 1, 'back to one round per 10 s');
   app.stop();
 });
 
@@ -263,4 +296,83 @@ test('fast rounds: a save still in flight is never taken for the state on /data'
   app.saving = undefined;
   app.stop();
   await Promise.race([asked, new Promise((resolve) => setImmediate(resolve))]);
+});
+
+test('fast rounds: a switch-off the IPX ignores for 6 s is sent again 5 s apart, and ends applied', async () => {
+  const devices = [created('relay', 'r1', { relayKind: 'switch' })];
+  const world = captured();
+  world.state.led[0] = 1;
+  const config = { ...CONFIG, relays: 'R1', inputs_poll_ms: 1000 };
+  const { app, gladys, start, wait, act, clock } = await setup({ world, config, devices });
+  await start();
+  const t0 = clock.monotonic();
+  world.ignoreWrites = true;
+  const off = act(gladys.fake.setValue(devices[0], devices[0].features[0], 0));
+  await wait(6 * SECOND - (clock.monotonic() - t0));
+  world.ignoreWrites = false;
+  await off;
+  await wait(20 * SECOND);
+  assert.equal(world.state.led[0], 0, 'the relay ends off');
+  const offs = world.writes().filter((r) => r.path === '/preset.htm?set1=0');
+  assert.ok(offs.length >= 2 && offs.length <= 4, `${offs.length} sends (the click and 3 at most)`);
+  const resends = offs.slice(1).map((r) => r.sentAt);
+  const spaced = resends.map((at, i) => at - (i === 0 ? offs[0].sentAt : resends[i - 1]));
+  assert.ok(
+    spaced.every((g) => g >= TIMINGS.guardResendGap - 1),
+    `resends 5 s apart at least: ${spaced.join(', ')}`,
+  );
+  app.stop();
+});
+
+test('restart 9.5 s into a 1 s pace (attempt written 4.5 s before): the first read waits the interval', async () => {
+  const world = captured();
+  const config = { ...CONFIG, inputs_poll_ms: 1000 };
+  const { app, start, wait, store, clock } = await setup({ world, config });
+  await start();
+  await wait(8500);
+  const last = rounds(world).at(-1).at;
+  app.stop();
+  const again = await setup({ store, clock, world: captured(), config });
+  await again.start();
+  await again.wait(TIMINGS.attemptSaveEvery + 2 * SECOND);
+  const next = rounds(again.world)[0];
+  assert.ok(next && next.at - last >= INPUTS_POLL_MS.min, `${next?.at - last} ms`);
+  again.app.stop();
+});
+
+test('restart from a 1 s pace to a 10 s one: the first read waits the new interval', async () => {
+  const world = captured();
+  const { app, start, wait, store, clock } = await setup({
+    world,
+    config: { ...CONFIG, inputs_poll_ms: 1000 },
+  });
+  await start();
+  await wait(8500);
+  const last = rounds(world).at(-1).at;
+  app.stop();
+  assert.equal(store.data.lastAttemptFast, true);
+  const again = await setup({ store, clock, world: captured(), config: CONFIG });
+  await again.start();
+  await again.wait(20 * SECOND);
+  const next = rounds(again.world)[0];
+  assert.ok(next && next.at - last >= 10 * SECOND, `${next?.at - last} ms`);
+  again.app.stop();
+});
+
+test('fast rounds: a failed write of /data is written again once /data works', async () => {
+  const devices = [created('relay', 'r1', { relayKind: 'switch' })];
+  const world = captured();
+  world.state.led[0] = 1;
+  const config = { ...CONFIG, relays: 'R1', inputs_poll_ms: 1000 };
+  const { app, gladys, start, wait, act, store } = await setup({ world, config, devices });
+  await start();
+  store.fail = true;
+  world.ignoreWrites = true;
+  await act(gladys.fake.setValue(devices[0], devices[0].features[0], 0));
+  await wait(1500);
+  assert.equal(store.data.guards.length, 0, 'not on /data yet');
+  store.fail = false;
+  await wait(1500);
+  assert.equal(store.data.guards.length, 1, 'the held switch-off written once /data works');
+  app.stop();
 });

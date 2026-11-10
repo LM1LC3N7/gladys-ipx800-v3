@@ -150,11 +150,11 @@
         "fr": "Lecture des entrées toutes les (millisecondes)"
       },
       "description": {
-        "en": "Optional, to see an input change sooner: 1000 ms (1 s) at least. Empty: the interval above. The whole status page of the IPX800 V3 (relays and analog inputs too) is read in one request at this pace, one request at a time, so that its small web server keeps up.",
-        "fr": "Facultatif, pour voir plus vite le changement d’une entrée : 1000 ms (1 s) au moins. Vide : l’intervalle ci-dessus. Toute la page d’état de l’IPX800 V3 (relais et entrées analogiques compris) est lue en une requête à ce rythme, une requête à la fois, pour que son petit serveur web suive."
+        "en": "Optional, to see an input change sooner: 1000 ms (1 s) at least (less is read as 1000). 0: the interval above (Gladys keeps a number field you empty: type 0 to go back). The whole status page of the IPX800 V3 (relays and analog inputs too) is read in one request at this pace, one request at a time, with a rest after each answer, so that its small web server keeps up.",
+        "fr": "Facultatif, pour voir plus vite le changement d’une entrée : 1000 ms (1 s) au moins (moins est lu comme 1000). 0 : l’intervalle ci-dessus (Gladys garde un champ numérique que vous videz : saisissez 0 pour revenir). Toute la page d’état de l’IPX800 V3 (relais et entrées analogiques compris) est lue en une requête à ce rythme, une requête à la fois, avec un repos après chaque réponse, pour que son petit serveur web suive."
       },
       "required": false,
-      "min": 1000,
+      "min": 0,
       "max": 300000
     },
     {

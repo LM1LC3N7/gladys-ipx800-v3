@@ -8,7 +8,7 @@
 //
 // One round: one request (`globalstatus.xml`, or `status.xml` when that one
 // is missing). The targets come from the configuration (the 8 relays and
-// inputs of the IPX, its 4 analog inputs, the extensions listed).
+// inputs of the IPX, its 16 analog inputs, the extensions listed).
 //
 // The pace is kept across restarts: never two rounds less than an interval
 // apart, whatever asks (a reconnection, a save of the form, the test button,
@@ -475,8 +475,9 @@ export class IpxApp {
     if (saved.lastAttemptAt !== null) {
       // Whatever the controller: never two reads within an interval.
       this.lastReadAt = mono - (now - saved.lastAttemptAt);
-      // Fast rounds: the attempt in /data may be up to attemptSaveEvery older than the last one.
-      if (this.fast) this.lastReadAt += TIMINGS.attemptSaveEvery;
+      // Written at a fast pace: up to attemptSaveEvery older than the last attempt (whatever
+      // the pace configured now).
+      if (saved.lastAttemptFast) this.lastReadAt += TIMINGS.attemptSaveEvery;
     }
     if (saved.key !== this.config.key) {
       // Another controller: its pause, refusal and guards are not this one's.
@@ -844,7 +845,9 @@ export class IpxApp {
 
   /** The monotonic time from which the next round may start, from the caller's instant `mono`. */
   dueAt(mono) {
-    const due = this.lastReadAt === undefined ? mono : this.lastReadAt + this.interval;
+    let due = this.lastReadAt === undefined ? mono : this.lastReadAt + this.interval;
+    // Fast rounds: the IPX rests after each answer (see TIMINGS.fastRest).
+    if (this.fast && this.restUntil !== undefined) due = Math.max(due, this.restUntil);
     return Math.max(due, mono + this.pauseLeft(mono));
   }
 
@@ -923,6 +926,7 @@ export class IpxApp {
     ) {
       this.attemptSavedAt = mono;
       this.memory.lastAttemptAt = this.now();
+      this.memory.lastAttemptFast = this.fast;
       await this.saveMemory();
       if (gone()) return;
     }
@@ -930,6 +934,7 @@ export class IpxApp {
     try {
       result = await this.readRound(client, mono);
     } catch (err) {
+      this.rested(mono);
       if (gone()) return;
       if (err instanceof IpxError && (err.code === 'cut' || (err.code === 'late' && !err.sent))) {
         // Cut by a protective command, or never sent (left the queue behind commands at its
@@ -941,9 +946,16 @@ export class IpxApp {
       this.schedule();
       return;
     }
+    this.rested(mono);
     if (gone()) return;
     await this.succeeded(result);
     if (!gone()) this.schedule();
+  }
+
+  /** After a round that started at `started`: the rest the IPX gets before the next one. */
+  rested(started) {
+    const end = this.monotonic();
+    this.restUntil = end + Math.max(TIMINGS.fastRest, end - started);
   }
 
   /** One round: `{ targets: Map, at }`. Throws an IpxError for the whole round. */
@@ -1233,7 +1245,12 @@ export class IpxApp {
       guard.other = value;
       return;
     }
-    if (resend && guard.resends < TIMINGS.resendMax) {
+    // Spaced in time, not in reads: at 1 s, the 3 resends would be spent within 3 s.
+    if (
+      resend &&
+      guard.resends < TIMINGS.resendMax &&
+      !(at - guard.sentAt < TIMINGS.guardResendGap)
+    ) {
       this.resendGuard(guard);
     }
   }

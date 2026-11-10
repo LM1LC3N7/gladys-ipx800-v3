@@ -168,6 +168,16 @@ export const TIMINGS = {
    * and the state after a round is written only when it changed (no disk write a second).
    */
   attemptSaveEvery: 5 * SECOND,
+  /**
+   * Rounds faster than attemptSaveEvery: after an answer, the IPX rests at least as long as
+   * that request took, and at least this (a slow IPX is never kept busy all the time).
+   */
+  fastRest: 250,
+  /**
+   * A switch-off contradicted by the reads is sent again at most this often (whatever the
+   * pace of the reads: at 1 s, its 3 resends would otherwise be spent within 3 s).
+   */
+  guardResendGap: 5 * SECOND,
   /** "Attach the devices": the second click within this. */
   attachConfirm: MINUTE,
 };

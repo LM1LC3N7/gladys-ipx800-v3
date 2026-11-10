@@ -130,21 +130,31 @@ everything off" would switch on).
 
 ## Decisions after cce66's feedback (2026-11-10)
 
-- **Inputs pace**: `inputs_poll_ms` (ms, 1000 to 300000, empty = the poll
-  interval; shared by the slots). The round interval is the faster of the
+- **Inputs pace**: `inputs_poll_ms` (ms, 1000 to 300000; 0 = the poll
+  interval, as the Gladys form never sends an emptied number field and the
+  core keeps the old value: r1 I1; 1-999 read as 1000; shared by the
+  slots). After each answer at that pace the IPX rests as long as the
+  request took, 250 ms at least (r1 m1). The round interval is the faster of the
   two: one round reads the whole page in one request (no separate input
   request: one request at a time for the small web server), the next after
   the answer. 1000 ms at least: the V3 is a PIC web server; 0 or less is
   read as 1000, never "as fast as possible".
 - **/data at that pace** (rounds under 5 s): the time of the attempt goes to
   /data before a read at most every 5 s (`TIMINGS.attemptSaveEvery`), and a
-  restart adds those 5 s to its wait (never two reads within the interval);
+  restart adds those 5 s to its wait when /data says the attempt was
+  written at a fast pace (`lastAttemptFast`, whatever the pace now: r1 m2);
   the state after a round is written only when it differs from the last
   successful save (never while a save is in flight or after a failed one).
   Guards and commands save as before.
 - **Relay ranges** in "Relays Gladys may drive": `R1-R8`, `1-8`,
   `R1-R8:light`; a range backwards, from R0 or past R32 is an error and
-  lists none of its relays (never a part of it).
+  lists none of its relays (never a part of it). A relay listed twice with
+  another kind keeps its first one, the entry is reported (r1 m5).
+- **Resends of a contradicted switch-off** (r1 I2): 3 at most, now 5 s apart
+  at least (`TIMINGS.guardResendGap`) whatever the read pace; at 1 s they
+  were spent within 3 s.
+- **Mutation runner** (r1 I3, m4): the unmutated suite first (red: "baseline
+  FAILED", exit 1); every copy a real copy, node_modules included.
 - **Analog inputs**: 16 read by default (A1-A16); a device only for a
   published probe type (2, 4, 5, 6), so the unused ones (type 0) cost
   nothing. Raw / voltage / light: still milestone 2.
@@ -239,7 +249,7 @@ everything off" would switch on).
   and 20 s later.
 - **Reads**: one request a round (`globalstatus.xml`, the other page on a
   404, remembered). The targets come from the configuration (R1-R8, D1-D8,
-  A1-A4, the extensions, the listed relays); a code whose element is not in
+  A1-A16, the extensions, the listed relays); a code whose element is not in
   the answer is not on this IPX800 (no device, "declared but not found"); an
   element there but unreadable has no value. XML read with one bounded
   linear pattern (64 KB, 1024 elements), an element given twice is unknown.

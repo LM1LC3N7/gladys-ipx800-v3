@@ -117,6 +117,8 @@ function ownerOf(raw) {
 export const emptyMemory = () => ({
   format: FORMAT,
   lastAttemptAt: null,
+  /** The attempt was written at a fast pace: up to TIMINGS.attemptSaveEvery older than the last. */
+  lastAttemptFast: false,
   salt: '',
   owner: null,
   key: '',
@@ -134,6 +136,7 @@ export function normalizeMemory(raw, now = Date.now()) {
   const memory = emptyMemory();
   const lastAttemptAt = time(raw?.lastAttemptAt);
   memory.lastAttemptAt = lastAttemptAt === undefined ? null : Math.min(lastAttemptAt, now);
+  memory.lastAttemptFast = raw?.lastAttemptFast === true;
   const key = typeof raw?.key === 'string' && HEX32.test(raw.key) ? raw.key : '';
   memory.salt = typeof raw?.salt === 'string' && HEX32.test(raw.salt) ? raw.salt : '';
   memory.owner = ownerOf(raw?.owner);

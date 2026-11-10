@@ -1,23 +1,15 @@
 // -----------------------------------------------------------------------------
 // Mutation check of the guards and of cce66's additions (not in the image, not run by the CI):
 // each mutant of scripts/mutants.json is applied to its own copy of the
-// repository (in a fresh temporary directory, node_modules linked, never
-// installed), the test files are run, and the whole process group is killed at
+// repository (in a fresh temporary directory, node_modules copied, never
+// installed, never linked), the test files are run, and the whole process group is killed at
 // the deadline. A guard whose mutant survives needs a test; a mutant must make
 // a test FAIL, never hang.
 // Run: node scripts/mutants.mjs [indexes, e.g. 3,7]   (one at a time; use memcap)
 // -----------------------------------------------------------------------------
 
 import { spawn } from 'node:child_process';
-import {
-  cpSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -60,16 +52,33 @@ function run(dir) {
 
 let survivors = 0;
 const base = mkdtempSync(join(tmpdir(), 'ipx800v3-mutants-'));
+// A real copy of everything, node_modules included: never a link to the shared repository
+// (an `npm ci` in a copy would empty it).
+const copy = (dir) =>
+  cpSync(REPO, dir, { recursive: true, filter: (src) => basename(src) !== '.git' });
 try {
+  // The unmutated suite first: a suite already red would mark every mutant "killed".
+  const clean = mkdtempSync(join(base, 'clean-'));
+  copy(clean);
+  const baseline = await run(clean);
+  rmSync(clean, { recursive: true, force: true });
+  if (baseline.code !== 0) {
+    console.log(`baseline ${baseline.code === 'HUNG' ? 'HUNG' : 'FAILED'}: fix the suite first`);
+    console.log(
+      baseline.out
+        .split('\n')
+        .filter((l) => /^not ok|✖/.test(l))
+        .slice(0, 10)
+        .join('\n'),
+    );
+    survivors = -1;
+  }
   for (const [i, m] of list.entries()) {
+    if (survivors < 0) break;
     if (only && !only.has(i)) continue;
     const dir = mkdtempSync(join(base, 'm-'));
     try {
-      cpSync(REPO, dir, {
-        recursive: true,
-        filter: (src) => !['.git', 'node_modules'].includes(basename(src)),
-      });
-      symlinkSync(join(REPO, 'node_modules'), join(dir, 'node_modules'));
+      copy(dir);
       const file = join(dir, m.file);
       const text = readFileSync(file, 'utf8');
       const n = text.split(m.from).length - 1;
@@ -90,4 +99,4 @@ try {
 } finally {
   rmSync(base, { recursive: true, force: true });
 }
-process.exitCode = survivors ? 1 : 0;
+process.exitCode = survivors === 0 ? 0 : 1;

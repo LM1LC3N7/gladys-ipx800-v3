@@ -128,8 +128,8 @@ test('the configuration matches the code; the password a secret without default'
   );
   assert.deepEqual(
     [fields.inputs_poll_ms.min, fields.inputs_poll_ms.max, fields.inputs_poll_ms.default],
-    [INPUTS_POLL_MS.min, INPUTS_POLL_MS.max, undefined],
-    'empty by default: the poll interval',
+    [0, INPUTS_POLL_MS.max, undefined],
+    '0 (and empty by default): the poll interval',
   );
   assert.equal(fields.inputs_poll_ms.required, false);
   for (const key of ['relays', 'relays_2', 'relays_3']) {

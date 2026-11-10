@@ -32,8 +32,8 @@
   {
     "name": "inputs pace: empty = 1 s",
     "file": "src/config.js",
-    "from": "clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, undefined)",
-    "to": "clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, 1000)"
+    "from": "        : undefined,\n",
+    "to": "        : 1000,\n"
   },
   {
     "name": "inputs pace: ignored",
@@ -74,7 +74,7 @@
   {
     "name": "fast rounds: restart without slack",
     "file": "src/app.js",
-    "from": "if (this.fast) this.lastReadAt += TIMINGS.attemptSaveEvery;",
+    "from": "if (saved.lastAttemptFast) this.lastReadAt += TIMINGS.attemptSaveEvery;",
     "to": ""
   },
   {
@@ -116,8 +116,8 @@
   {
     "name": "relay range: last relay left out",
     "file": "src/config.js",
-    "from": "for (let n = from; n <= to; n += 1) relays.set",
-    "to": "for (let n = from; n < to; n += 1) relays.set"
+    "from": "for (let n = from; n <= to; n += 1) {",
+    "to": "for (let n = from; n < to; n += 1) {"
   },
   {
     "name": "relay range: kind of a range dropped",
@@ -142,5 +142,65 @@
     "file": "src/devices.js",
     "from": "name: created?.name ?? deviceName(slot, target.code),",
     "to": "name: deviceName(slot, target.code),"
+  },
+  {
+    "name": "I2: resends not spaced",
+    "file": "src/app.js",
+    "from": "      !(at - guard.sentAt < TIMINGS.guardResendGap)\n",
+    "to": "      true\n"
+  },
+  {
+    "name": "I2: resend gap 1 s",
+    "file": "src/constants.js",
+    "from": "guardResendGap: 5 * SECOND,",
+    "to": "guardResendGap: 1 * SECOND,"
+  },
+  {
+    "name": "I1: 0 read as 1000",
+    "file": "src/config.js",
+    "from": "number(raw?.inputs_poll_ms) > 0",
+    "to": "number(raw?.inputs_poll_ms) >= 0"
+  },
+  {
+    "name": "m1: no rest after a slow answer",
+    "file": "src/app.js",
+    "from": "this.restUntil = end + Math.max(TIMINGS.fastRest, end - started);",
+    "to": "this.restUntil = end;"
+  },
+  {
+    "name": "m2: margin only for a fast pace now",
+    "file": "src/app.js",
+    "from": "if (saved.lastAttemptFast) this.lastReadAt",
+    "to": "if (this.fast) this.lastReadAt"
+  },
+  {
+    "name": "m2: fast flag never written",
+    "file": "src/app.js",
+    "from": "this.memory.lastAttemptFast = this.fast;",
+    "to": "this.memory.lastAttemptFast = false;"
+  },
+  {
+    "name": "m2: fast flag not read back",
+    "file": "src/store.js",
+    "from": "memory.lastAttemptFast = raw?.lastAttemptFast === true;",
+    "to": "memory.lastAttemptFast = false;"
+  },
+  {
+    "name": "m3/R3: attempt written every 10 s",
+    "file": "src/app.js",
+    "from": "mono - this.attemptSavedAt >= TIMINGS.attemptSaveEvery",
+    "to": "mono - this.attemptSavedAt >= 10000"
+  },
+  {
+    "name": "m5: conflicting kind overwrites",
+    "file": "src/config.js",
+    "from": "if (relays.has(`r${n}`) && relays.get(`r${n}`) !== kind) conflict = true;\n      else relays.set",
+    "to": "if (relays.has(`r${n}`) && relays.get(`r${n}`) !== kind) conflict = true;\n      relays.set"
+  },
+  {
+    "name": "m5: conflict not reported",
+    "file": "src/config.js",
+    "from": "    if (conflict) errors.push(text.slice(0, 20));\n",
+    "to": ""
   }
 ]

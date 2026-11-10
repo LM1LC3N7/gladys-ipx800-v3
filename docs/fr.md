@@ -74,11 +74,15 @@ cette version : l’état nomme les entrées concernées. Une valeur brute de 0
 L’IPX800 est lu toutes les 10 secondes par défaut (5 s au moins), par sa
 page `globalstatus.xml`, ou `status.xml` quand elle manque. Pour voir plus
 vite le changement d’une entrée, « Lecture des entrées toutes les
-(millisecondes) » le lit plus souvent : 1000 ms (1 s) au moins, car son
-petit serveur web répond à une requête à la fois. Chaque lecture est une
+(millisecondes) » le lit plus souvent : 1000 ms (1 s) au moins (moins est
+lu comme 1000), car son petit serveur web répond à une requête à la fois.
+Pour revenir à l’intervalle ci-dessus, saisissez `0` (Gladys garde la
+dernière valeur d’un champ numérique que vous videz). Chaque lecture est une
 requête pour toute la page (relais et entrées analogiques compris), la
-suivante seulement une fois la précédente répondue ; un IPX800 lent ralentit
-les lectures, sans jamais les empiler. À ce rythme, l’intégration n’écrit
+suivante seulement une fois la précédente répondue et après un repos au
+moins aussi long que cette réponse (250 ms au moins) : un IPX800 lent est lu
+moins vite, jamais plus de la moitié du temps, et ses lectures ne
+s’empilent jamais. À ce rythme, l’intégration n’écrit
 son fichier d’état dans `/data` que si quelque chose a changé (et l’heure de
 la dernière lecture toutes les 5 s au plus), pour ne pas écrire sur le
 disque de Gladys chaque seconde. Une valeur que
@@ -146,7 +150,8 @@ Un relais que vous ne listez pas est **en lecture seule**. Pour en piloter
 un depuis Gladys, listez-le dans « Relais pilotables par Gladys », par ex.
 `R1, R3:light` (`:light` en fait une lumière, sinon un interrupteur), ou
 une plage, `R1-R8` (`R1-R8:light` : toutes en lumières ; une plage à
-l’envers ou au-delà de R32 n’en liste aucun), de préférence avant de le créer dans Découverte ; déjà créé, cliquez « Mettre à
+l’envers ou au-delà de R32 n’en liste aucun ; un relais listé deux fois avec
+un autre genre garde le premier et l’état nomme l’entrée), de préférence avant de le créer dans Découverte ; déjà créé, cliquez « Mettre à
 jour » sur lui dans Découverte. Un interrupteur ou une lumière obéit à tout
 « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais
 une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne. Un
@@ -205,7 +210,8 @@ répond pas (disque figé) n’est attendu que 1,5 s : ni l’extinction, ni les
 lectures ne l’attendent plus, et l’état le dit.
 
 Une extinction que les lectures ne montrent pas est renvoyée, 3 fois au plus
-(trois envois partis) ; puis l’état le dit (vérifiez sur place). Elle reste
+(trois envois partis), à 5 s d’écart au moins quel que soit le rythme des
+lectures ; puis l’état le dit (vérifiez sur place). Elle reste
 tenue jusqu’à ce qu’une commande plus récente sur ce relais parte (votre
 clic), une autre extinction, le retrait du relais de la liste, ou, une fois
 appliquée, le relais lu allumé deux fois de suite (changé sur l’IPX800

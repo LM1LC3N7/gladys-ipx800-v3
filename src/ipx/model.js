@@ -55,7 +55,7 @@ export function isPendingAnswer(fields) {
   return sum === 0 && typeof dns === 'string' && dns.toLowerCase().includes('pending');
 }
 
-/** The targets listed: the 8 relays and inputs of the IPX, its 4 analog inputs, the extensions. */
+/** The targets listed: the 8 relays and inputs of the IPX, its 16 analog inputs, the extensions. */
 export function v3Codes(extensions, relays) {
   const codes = new Set();
   for (let n = 1; n <= LIMITS_V3.own; n += 1) {
