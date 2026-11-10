@@ -12,6 +12,10 @@ the notes of the version's GitHub Release.
 
 ## [0.2.1] - 2026-11-10
 
+### Changed
+
+- Nothing: same code as 0.2.0 (the release workflow ran a second time).
+
 ## [0.2.0] - 2026-11-10
 
 ### Added
