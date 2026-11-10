@@ -172,6 +172,19 @@ export const T = {
   ),
   relayErrors: (list) =>
     both(`Relays not understood: ${list.en}.`, `Relais non compris : ${list.fr}.`),
+  /** `list`: [{ code, kind }], the relays listed twice with another kind. */
+  relayConflicts: (list) =>
+    both(
+      `Relays listed twice with another kind, the first one kept: ${list
+        .map(({ code, kind }) => `${code.toUpperCase()} (${kind === 'light' ? 'light' : 'switch'})`)
+        .join(', ')}.`,
+      `Relais listés deux fois avec un autre genre, le premier gardé : ${list
+        .map(
+          ({ code, kind }) =>
+            `${code.toUpperCase()} (${kind === 'light' ? 'lumière' : 'interrupteur'})`,
+        )
+        .join(', ')}.`,
+    ),
   extensionErrors: (list) =>
     both(`Extensions not understood: ${list.en}.`, `Extensions non comprises : ${list.fr}.`),
   relaysReadOnly: (count) =>

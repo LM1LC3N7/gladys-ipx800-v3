@@ -186,7 +186,25 @@ test('a server keeping the connection open: one connection at a time, the next o
         : undefined,
   });
   t.after(() => dev.close());
-  const c = client(dev.port);
+  // Counted from the client side: a request settles only once its socket is closed
+  // (src/ipx/http.js). The server's own peak counts a new connection before it has handled the
+  // close of the previous one (a race on a loaded machine: r2 m3), so it is not asserted.
+  let open = 0;
+  let peak = 0;
+  const { request } = await import('../src/ipx/http.js');
+  const c = new IpxClient({
+    host: '127.0.0.1',
+    port: dev.port,
+    transport: async (options, hooks) => {
+      open += 1;
+      peak = Math.max(peak, open);
+      try {
+        return await request(options, hooks);
+      } finally {
+        open -= 1;
+      }
+    },
+  });
   await c.readStatus();
   await c.readStatus();
   await Promise.all([
@@ -195,7 +213,7 @@ test('a server keeping the connection open: one connection at a time, the next o
     c.readStatus().catch(() => {}),
   ]);
   assert.equal(dev.connections, 5);
-  assert.equal(dev.peak, 1, 'never two connections open at once');
+  assert.equal(peak, 1, 'never two connections open at once');
 });
 
 test('the lane waits a little after a request before opening the next connection', async () => {

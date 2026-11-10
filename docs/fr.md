@@ -81,7 +81,8 @@ dernière valeur d’un champ numérique que vous videz). Chaque lecture est une
 requête pour toute la page (relais et entrées analogiques compris), la
 suivante seulement une fois la précédente répondue et après un repos au
 moins aussi long que cette réponse (250 ms au moins) : un IPX800 lent est lu
-moins vite, jamais plus de la moitié du temps, et ses lectures ne
+moins vite, les lectures périodiques n’occupent jamais plus de la moitié du
+temps (les relectures des commandes viennent en plus), et ses lectures ne
 s’empilent jamais. À ce rythme, l’intégration n’écrit
 son fichier d’état dans `/data` que si quelque chose a changé (et l’heure de
 la dernière lecture toutes les 5 s au plus), pour ne pas écrire sur le
@@ -151,7 +152,8 @@ un depuis Gladys, listez-le dans « Relais pilotables par Gladys », par ex.
 `R1, R3:light` (`:light` en fait une lumière, sinon un interrupteur), ou
 une plage, `R1-R8` (`R1-R8:light` : toutes en lumières ; une plage à
 l’envers ou au-delà de R32 n’en liste aucun ; un relais listé deux fois avec
-un autre genre garde le premier et l’état nomme l’entrée), de préférence avant de le créer dans Découverte ; déjà créé, cliquez « Mettre à
+un autre genre garde le premier, ce que dit l’état (« listés deux fois ») ;
+le reste de l’entrée s’applique), de préférence avant de le créer dans Découverte ; déjà créé, cliquez « Mettre à
 jour » sur lui dans Découverte. Un interrupteur ou une lumière obéit à tout
 « éteins tout » de Google, Alexa, du MCP et des scènes : n’y mettez jamais
 une pompe, un congélateur, une VMC, un chauffage, une gâche ni une vanne. Un
@@ -210,8 +212,8 @@ répond pas (disque figé) n’est attendu que 1,5 s : ni l’extinction, ni les
 lectures ne l’attendent plus, et l’état le dit.
 
 Une extinction que les lectures ne montrent pas est renvoyée, 3 fois au plus
-(trois envois partis), à 5 s d’écart au moins quel que soit le rythme des
-lectures ; puis l’état le dit (vérifiez sur place). Elle reste
+(trois envois partis), une par lecture, à 5 s d’écart au moins quand les
+entrées sont lues plus souvent que toutes les 5 s ; puis l’état le dit (vérifiez sur place). Elle reste
 tenue jusqu’à ce qu’une commande plus récente sur ce relais parte (votre
 clic), une autre extinction, le retrait du relais de la liste, ou, une fois
 appliquée, le relais lu allumé deux fois de suite (changé sur l’IPX800

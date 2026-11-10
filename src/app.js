@@ -1070,6 +1070,9 @@ export class IpxApp {
     if (this.config.relayErrors.length > 0) {
       parts.push(T.relayErrors(listOf(this.config.relayErrors)));
     }
+    if (this.config.relayConflicts.length > 0) {
+      parts.push(T.relayConflicts(this.config.relayConflicts));
+    }
     if (this.config.extensionErrors.length > 0) {
       parts.push(T.extensionErrors(listOf(this.config.extensionErrors)));
     }
@@ -1245,11 +1248,12 @@ export class IpxApp {
       guard.other = value;
       return;
     }
-    // Spaced in time, not in reads: at 1 s, the 3 resends would be spent within 3 s.
+    // Fast rounds: spaced in time, not in reads (at 1 s, the 3 resends would be spent within
+    // 3 s). At 5 s and more, one per read as in 0.1.1.
     if (
       resend &&
       guard.resends < TIMINGS.resendMax &&
-      !(at - guard.sentAt < TIMINGS.guardResendGap)
+      !(this.fast && at - guard.sentAt < TIMINGS.guardResendGap)
     ) {
       this.resendGuard(guard);
     }

@@ -21,15 +21,16 @@ the notes of the version's GitHub Release.
 - A range of relays to drive: `R1-R8` (`R1-R8:light`). A range typed in
   0.1.1 was refused there: after the update it lists its relays (those
   already created stay read only until "Update" in Discover). A relay listed
-  twice with another kind keeps its first one, and the status names the
-  entry.
+  twice with another kind keeps its first one, and the status says it
+  ("listed twice"); the rest of the entry applies.
 - The 16 analog inputs of the IPX800 V3 (A1 to A16), each a device only with
   a published probe type.
 
 ### Changed
 
-- A switch-off the reads do not show is sent again 5 s apart at least
-  (still 3 times at most), whatever the read pace.
+- At the inputs pace (under 5 s), a switch-off the reads do not show is
+  sent again 5 s apart at least (still 3 times at most); at 5 s and more,
+  one a read as before.
 
 - New devices are named after their code: `IPX800V3-R1`, `IPX800V3-D1`,
   `IPX800V3-A1` (`IPX800V3-2-R1` for the IPX800 #2); devices already

@@ -376,3 +376,38 @@ test('fast rounds: a failed write of /data is written again once /data works', a
   assert.equal(store.data.guards.length, 1, 'the held switch-off written once /data works');
   app.stop();
 });
+
+test('a relay listed twice with another kind: "listed twice, kept as light" in the status, not "not understood"', async () => {
+  const config = { ...CONFIG, relays: 'R5:light, R1-R8' };
+  const { app, gladys, start } = await setup({ world: captured(), config });
+  await start();
+  const { en, fr } = gladys.fake.connectionStatus.message;
+  assert.match(en, /Relays listed twice with another kind, the first one kept: R5 \(light\)\./);
+  assert.match(
+    fr,
+    /Relais listés deux fois avec un autre genre, le premier gardé : R5 \(lumière\)\./,
+  );
+  assert.doesNotMatch(en, /not understood/);
+  app.stop();
+});
+
+test('pace of 10 s (as 0.1.1): a switch-off the IPX ignores for 6 s is applied at the next read, no period later', async () => {
+  const devices = [created('relay', 'r1', { relayKind: 'switch' })];
+  const world = captured();
+  world.state.led[0] = 1;
+  const config = { ...CONFIG, relays: 'R1' };
+  const { app, gladys, start, wait, act, clock } = await setup({ world, config, devices });
+  await start();
+  // The click right after a round (phase about 200 ms: 0.1.1 applies it 9.8 s later).
+  const lastRound = rounds(world).at(-1).at;
+  const t0 = clock.monotonic();
+  assert.ok(t0 - lastRound < 1500);
+  world.ignoreWrites = true;
+  const off = act(gladys.fake.setValue(devices[0], devices[0].features[0], 0));
+  await wait(6 * SECOND - (clock.monotonic() - t0));
+  world.ignoreWrites = false;
+  await off;
+  await wait(lastRound + 10 * SECOND + 500 - clock.monotonic());
+  assert.equal(world.state.led[0], 0, 'off by the round of 10 s, not 20 s');
+  app.stop();
+});

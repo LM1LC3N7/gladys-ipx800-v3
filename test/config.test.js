@@ -96,13 +96,18 @@ test('relays Gladys may drive: a range R1-R8 (cce66), with a kind; a wrong range
   assert.equal(parseRelays('R1-R32').relays.size, 32);
   const both = parseRelays('R1-R8, R5:light, R5');
   assert.equal(both.relays.get('r5'), 'switch', 'the first kind kept');
-  assert.deepEqual(
-    both.errors,
-    ['R5:light'],
-    'the conflicting entry reported; R5 again is no conflict',
-  );
-  assert.equal(parseRelays('R5:light, R1-R8').relays.get('r5'), 'light');
-  assert.deepEqual(parseRelays('R5:light, R1-R8').errors, ['R1-R8']);
+  assert.deepEqual(both.errors, [], 'understood: not "not understood"');
+  assert.deepEqual(both.conflicts, [{ code: 'r5', kind: 'switch' }], 'R5 again is no conflict');
+  const later = parseRelays('R5:light, R1-R8');
+  assert.equal(later.relays.get('r5'), 'light');
+  assert.equal(later.relays.get('r1'), 'switch', 'the rest of the entry applies');
+  assert.deepEqual(later.errors, []);
+  assert.deepEqual(later.conflicts, [{ code: 'r5', kind: 'light' }]);
+  assert.deepEqual(parseRelays('R1-R4, R3-R8:light').conflicts, [
+    { code: 'r3', kind: 'switch' },
+    { code: 'r4', kind: 'switch' },
+  ]);
+  assert.deepEqual(parseRelays('R1, R1-R2, r2').conflicts, [], 'a same-kind repeat is no conflict');
   assert.equal(parseRelays('R5:light, R1-R8').relays.size, 8);
 });
 

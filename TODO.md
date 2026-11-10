@@ -149,10 +149,11 @@ everything off" would switch on).
 - **Relay ranges** in "Relays Gladys may drive": `R1-R8`, `1-8`,
   `R1-R8:light`; a range backwards, from R0 or past R32 is an error and
   lists none of its relays (never a part of it). A relay listed twice with
-  another kind keeps its first one, the entry is reported (r1 m5).
-- **Resends of a contradicted switch-off** (r1 I2): 3 at most, now 5 s apart
-  at least (`TIMINGS.guardResendGap`) whatever the read pace; at 1 s they
-  were spent within 3 s.
+  another kind keeps its first one, named in the status as "listed twice"
+  (`relayConflicts`), the rest of the entry applies (r1 m5, r2 m2).
+- **Resends of a contradicted switch-off** (r1 I2): 3 at most; at a fast pace
+  (under 5 s) 5 s apart at least (`TIMINGS.guardResendGap`), at 1 s they
+  were spent within 3 s; at 5 s and more one a read, as in 0.1.1 (r2 m1).
 - **Mutation runner** (r1 I3, m4): the unmutated suite first (red: "baseline
   FAILED", exit 1); every copy a real copy, node_modules included.
 - **Analog inputs**: 16 read by default (A1-A16); a device only for a

@@ -174,8 +174,8 @@ export const TIMINGS = {
    */
   fastRest: 250,
   /**
-   * A switch-off contradicted by the reads is sent again at most this often (whatever the
-   * pace of the reads: at 1 s, its 3 resends would otherwise be spent within 3 s).
+   * Fast rounds: a switch-off contradicted by the reads is sent again at most this often (at
+   * 1 s, its 3 resends would otherwise be spent within 3 s); at 5 s and more, one a read.
    */
   guardResendGap: 5 * SECOND,
   /** "Attach the devices": the second click within this. */

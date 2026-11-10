@@ -76,8 +76,9 @@ answers one request at a time. To go back to the interval above, type `0`
 (Gladys keeps the last value of a number field you empty). Each read is one
 request for the whole page (relays and analog inputs too), the next one only
 once the previous one is answered and after a rest at least as long as that
-answer took (250 ms at least): a slow IPX800 is read more slowly, never more
-than half of the time, and its reads never stack up. At that pace the integration
+answer took (250 ms at least): a slow IPX800 is read more slowly, the periodic
+reads never take more than half of the time (the read backs of commands come
+on top), and its reads never stack up. At that pace the integration
 writes its state file in `/data` only when something changed (and the time
 of the last read every 5 s at most), so that the disk of Gladys is not
 written every second. A value
@@ -139,7 +140,8 @@ A relay you do not list is **read only**. To drive one from Gladys, list it
 in "Relays Gladys may drive", e.g. `R1, R3:light` (`:light` makes it a
 light, a switch otherwise), or a range, `R1-R8` (`R1-R8:light`: all lights;
 a range backwards or past R32 lists none of it; a relay listed twice with
-another kind keeps its first one and the status names the entry), preferably before creating it in Discover;
+another kind keeps its first one, which the status says ("listed twice");
+the rest of the entry applies), preferably before creating it in Discover;
 already created, click "Update" on it in Discover. A switch or a light obeys
 every "turn everything off" of Google, Alexa, the MCP and the scenes: never
 list a pump, a freezer, a ventilation, a heating, a door strike nor a valve.
@@ -194,7 +196,8 @@ answer (a frozen disk) is waited for 1.5 s at most: neither the switch-off
 nor the reads wait for it longer, and the status says so.
 
 A switch-off the reads do not show is sent again, 3 times at most (three
-sends that left), 5 s apart at least whatever the read pace; then the status says so (check on site). It stays held
+sends that left), one a read, 5 s apart at least when the inputs are read faster than every
+5 s; then the status says so (check on site). It stays held
 until a newer command on that relay leaves (your click), another
 switch-off, the relay leaving the list, or, once applied, the relay read on
 twice in a row (changed on the IPX800 itself, by its scenarios or its page):

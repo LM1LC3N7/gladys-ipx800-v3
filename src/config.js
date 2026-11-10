@@ -115,12 +115,13 @@ export function relayCode(text) {
  * The relays Gladys may drive: `R1, R3:light`, or a range `R1-R8` (`R1-R8:light`) -> Map(code
  * -> kind). A bare number is a relay (`3` = `R3`, `1-8` = `R1-R8`); no kind = a switch. Every
  * other relay is read only. Wrong entries (a range backwards or past R32 included: nothing of
- * it is listed) are reported, not fatal; so is an entry listing a relay already listed with
- * another kind (`R1-R8, R5:light`: R5 keeps its first kind, the switch).
+ * it is listed) are reported, not fatal. A relay listed again with another kind keeps its first
+ * one (`R1-R8, R5:light`: R5 a switch) and is named in `conflicts`; the rest of the entry applies.
  */
 export function parseRelays(raw) {
   const relays = new Map();
   const errors = [];
+  const conflicts = new Set();
   for (const entry of String(raw ?? '').split(/[,;\n]+/)) {
     const text = entry.trim();
     if (text === '') continue;
@@ -134,15 +135,18 @@ export function parseRelays(raw) {
       errors.push(text.slice(0, 20));
       continue;
     }
-    let conflict = false;
     for (let n = from; n <= to; n += 1) {
-      // A relay listed twice with another kind keeps its first one; the entry is reported.
-      if (relays.has(`r${n}`) && relays.get(`r${n}`) !== kind) conflict = true;
-      else relays.set(`r${n}`, kind);
+      // A relay listed twice with another kind keeps its first one, named in the status (the
+      // rest of the entry applies: not "not understood").
+      if (!relays.has(`r${n}`)) relays.set(`r${n}`, kind);
+      else if (relays.get(`r${n}`) !== kind) conflicts.add(`r${n}`);
     }
-    if (conflict) errors.push(text.slice(0, 20));
   }
-  return { relays, errors: errors.slice(0, 10) };
+  return {
+    relays,
+    errors: errors.slice(0, 10),
+    conflicts: [...conflicts].slice(0, 10).map((code) => ({ code, kind: relays.get(code) })),
+  };
 }
 
 const RANGE = { r: LIMITS_V3.relays, d: LIMITS_V3.inputs };
@@ -209,6 +213,7 @@ export function normalizeConfig(raw = {}) {
     credentialsError,
     relays: relays.relays,
     relayErrors: relays.errors,
+    relayConflicts: relays.conflicts,
     extensions: extensions.codes,
     extensionErrors: extensions.errors,
     // Set by src/hub.js: the address of an earlier slot (one IPX800, one lane of requests).

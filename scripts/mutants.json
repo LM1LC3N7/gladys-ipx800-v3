@@ -144,12 +144,6 @@
     "to": "name: deviceName(slot, target.code),"
   },
   {
-    "name": "I2: resends not spaced",
-    "file": "src/app.js",
-    "from": "      !(at - guard.sentAt < TIMINGS.guardResendGap)\n",
-    "to": "      true\n"
-  },
-  {
     "name": "I2: resend gap 1 s",
     "file": "src/constants.js",
     "from": "guardResendGap: 5 * SECOND,",
@@ -192,15 +186,39 @@
     "to": "mono - this.attemptSavedAt >= 10000"
   },
   {
+    "name": "I2: resends not spaced",
+    "file": "src/app.js",
+    "from": "!(this.fast && at - guard.sentAt < TIMINGS.guardResendGap)",
+    "to": "true"
+  },
+  {
+    "name": "r2 m1: gap at every pace",
+    "file": "src/app.js",
+    "from": "!(this.fast && at - guard.sentAt < TIMINGS.guardResendGap)",
+    "to": "!(at - guard.sentAt < TIMINGS.guardResendGap)"
+  },
+  {
     "name": "m5: conflicting kind overwrites",
     "file": "src/config.js",
-    "from": "if (relays.has(`r${n}`) && relays.get(`r${n}`) !== kind) conflict = true;\n      else relays.set",
-    "to": "if (relays.has(`r${n}`) && relays.get(`r${n}`) !== kind) conflict = true;\n      relays.set"
+    "from": "if (!relays.has(`r${n}`)) relays.set(`r${n}`, kind);",
+    "to": "relays.set(`r${n}`, kind);"
   },
   {
     "name": "m5: conflict not reported",
     "file": "src/config.js",
-    "from": "    if (conflict) errors.push(text.slice(0, 20));\n",
+    "from": "else if (relays.get(`r${n}`) !== kind) conflicts.add(`r${n}`);",
+    "to": ""
+  },
+  {
+    "name": "m5: a same-kind repeat reported",
+    "file": "src/config.js",
+    "from": "else if (relays.get(`r${n}`) !== kind) conflicts.add",
+    "to": "else conflicts.add"
+  },
+  {
+    "name": "r2 m2: conflicts left out of the status",
+    "file": "src/app.js",
+    "from": "parts.push(T.relayConflicts(this.config.relayConflicts));",
     "to": ""
   }
 ]
