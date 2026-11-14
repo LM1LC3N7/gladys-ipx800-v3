@@ -83,15 +83,18 @@ renamed, and nothing is lost by the update: the milliseconds typed stay
 empty or 0 the seconds typed then are still the pace (30 s stays 30 s, `0`
 goes back to them). To see that pace in the field, type it in milliseconds.
 
-Each read is one
-request for the whole page (relays, digital and analog inputs), the next one only
-once the previous one is answered and after a rest at least as long as that
-answer took (250 ms at least): a slow IPX800 is read more slowly, the periodic
-reads never take more than half of the time (the read backs of commands come
-on top), and its reads never stack up. At that pace the integration
-writes its state file in `/data` only when something changed (and the time
-of the last read every 5 s at most), so that the disk of Gladys is not
-written every second. A value
+Each read is one request for the whole page (relays, digital and analog
+inputs), and the next one never starts before the previous one is answered:
+the reads never stack up. Under 5000 ms, the next read also waits, after
+each answer, a rest at least as long as that answer took (250 ms at least):
+a slow IPX800 is read more slowly, and the periodic reads never take more
+than half of the time (the read backs of commands come on top). From
+5000 ms up, the next read is due one interval after the start of the
+previous one, with no rest of its own: a read that took longer than the
+interval is followed by the next one as soon as it is answered. Under
+5000 ms, the integration writes its state file in `/data` only when
+something changed (and the time of the last read every 5 s at most), so
+that the disk of Gladys is not written every second. A value
 the IPX800 does not give (missing, a text, out of range) is not published:
 never as 0.
 
@@ -206,17 +209,17 @@ answer (a frozen disk) is waited for 1.5 s at most: neither the switch-off
 nor the reads wait for it longer, and the status says so.
 
 A switch-off the reads do not show is sent again, 3 times at most (three
-sends that left), one a read, 5 s apart at least when the inputs are read faster than every
-5 s; then the status says so (check on site). It stays held
-until a newer command on that relay leaves (your click), another
-switch-off, the relay leaving the list, or, once applied, the relay read on
-twice in a row (changed on the IPX800 itself, by its scenarios or its page):
-never by the time. What was asked before a switch-off on the same relay and
-not sent yet is cancelled; a switch-on clicked while it is being sent is
-refused. A switch-on the integration sent before the switch-off and left
-without an answer (cut by the switch-off, say), if the IPX800 applies it
-anyway within 5 s of its leaving, is no change on the IPX800: the switch-off
-is sent again.
+sends that left), one a read, 5 s apart at least when the read pace is under
+5000 ms; then the status says so (check on site). It stays held until a
+newer command on that relay leaves (your click), another switch-off, the
+relay leaving the list, or, once applied, the relay read on twice in a row
+(changed on the IPX800 itself, by its scenarios or its page): never by the
+time. What was asked before a switch-off on the same relay and not sent yet
+is cancelled; a switch-on clicked while it is being sent is refused. A
+switch-on the integration sent before the switch-off and left without an
+answer (cut by the switch-off, say), if the IPX800 applies it anyway within
+5 s of its leaving, is no change on the IPX800: the switch-off is sent
+again.
 
 ## Commands
 

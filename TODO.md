@@ -160,15 +160,16 @@ everything off" would switch on).
 
 ## Decisions after cce66's feedback (2026-11-10)
 
-- **Inputs pace**: `inputs_poll_ms` (ms, 1000 to 300000; 0 = the poll
-  interval, as the Gladys form never sends an emptied number field and the
-  core keeps the old value: r1 I1; 1-999 read as 1000; shared by the
-  slots). After each answer at that pace the IPX rests as long as the
-  request took, 250 ms at least (r1 m1). The round interval is the faster of the
-  two: one round reads the whole page in one request (no separate input
-  request: one request at a time for the small web server), the next after
-  the answer. 1000 ms at least: the V3 is a PIC web server; 0 or less is
-  read as 1000, never "as fast as possible".
+- **Inputs pace** (0.2.0; "0 = the poll interval" and "the faster of the two"
+  replaced in 0.2.2, see "Decisions for 0.2.2"): `inputs_poll_ms` (ms, 1000 to
+  300000; 0 = the poll interval, as the Gladys form never sends an emptied
+  number field and the core keeps the old value: r1 I1; 1-999 read as 1000;
+  shared by the slots). After each answer at that pace the IPX rests as long
+  as the request took, 250 ms at least (r1 m1). The round interval is the
+  faster of the two: one round reads the whole page in one request (no
+  separate input request: one request at a time for the small web server), the
+  next after the answer. 1000 ms at least: the V3 is a PIC web server; 0 or
+  less is read as 1000, never "as fast as possible".
 - **/data at that pace** (rounds under 5 s): the time of the attempt goes to
   /data before a read at most every 5 s (`TIMINGS.attemptSaveEvery`), and a
   restart adds those 5 s to its wait when /data says the attempt was

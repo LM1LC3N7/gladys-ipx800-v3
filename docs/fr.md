@@ -87,16 +87,19 @@ même plus lentes que les secondes), et quand elles étaient vides ou à 0,
 les secondes saisies alors font toujours le rythme (30 s reste 30 s, `0` y
 revient). Pour voir ce rythme dans le champ, saisissez-le en millisecondes.
 
-Chaque lecture est une
-requête pour toute la page (relais, entrées numériques et analogiques), la
-suivante seulement une fois la précédente répondue et après un repos au
-moins aussi long que cette réponse (250 ms au moins) : un IPX800 lent est lu
-moins vite, les lectures périodiques n’occupent jamais plus de la moitié du
-temps (les relectures des commandes viennent en plus), et ses lectures ne
-s’empilent jamais. À ce rythme, l’intégration n’écrit
-son fichier d’état dans `/data` que si quelque chose a changé (et l’heure de
-la dernière lecture toutes les 5 s au plus), pour ne pas écrire sur le
-disque de Gladys chaque seconde. Une valeur que
+Chaque lecture est une requête pour toute la page (relais, entrées
+numériques et analogiques), et la suivante ne part jamais avant la réponse
+à la précédente : les lectures ne s’empilent jamais. Sous 5000 ms, la
+suivante attend en plus, après chaque réponse, un repos au moins aussi long
+que cette réponse (250 ms au moins) : un IPX800 lent est lu moins vite, et
+les lectures périodiques n’occupent jamais plus de la moitié du temps (les
+relectures des commandes viennent en plus). À partir de 5000 ms, la lecture
+suivante est due un intervalle après le début de la précédente, sans repos
+propre : une lecture plus longue que l’intervalle est suivie de la suivante
+dès sa réponse. Sous 5000 ms, l’intégration n’écrit son fichier d’état dans
+`/data` que si quelque chose a changé (et l’heure de la dernière lecture
+toutes les 5 s au plus), pour ne pas écrire sur le disque de Gladys chaque
+seconde. Une valeur que
 l’IPX800 ne donne pas (absente, un texte, hors plage) n’est pas publiée :
 jamais comme 0.
 
@@ -222,18 +225,18 @@ répond pas (disque figé) n’est attendu que 1,5 s : ni l’extinction, ni les
 lectures ne l’attendent plus, et l’état le dit.
 
 Une extinction que les lectures ne montrent pas est renvoyée, 3 fois au plus
-(trois envois partis), une par lecture, à 5 s d’écart au moins quand les
-entrées sont lues plus souvent que toutes les 5 s ; puis l’état le dit (vérifiez sur place). Elle reste
-tenue jusqu’à ce qu’une commande plus récente sur ce relais parte (votre
-clic), une autre extinction, le retrait du relais de la liste, ou, une fois
-appliquée, le relais lu allumé deux fois de suite (changé sur l’IPX800
-lui-même, par ses scénarios ou sa page) : jamais par le temps. Ce qui a été
-demandé avant une extinction sur le même relais et pas encore envoyé est
-annulé ; un allumage cliqué pendant qu’elle est en cours d’envoi est refusé.
-Un allumage envoyé par l’intégration avant l’extinction et resté sans
-réponse (coupé par l’extinction, par exemple), si l’IPX800 l’applique quand
-même dans les 5 s après son départ, n’est pas un changement sur l’IPX800 :
-l’extinction est renvoyée.
+(trois envois partis), une par lecture, à 5 s d’écart au moins quand le
+rythme de lecture est sous 5000 ms ; puis l’état le dit (vérifiez sur
+place). Elle reste tenue jusqu’à ce qu’une commande plus récente sur ce
+relais parte (votre clic), une autre extinction, le retrait du relais de la
+liste, ou, une fois appliquée, le relais lu allumé deux fois de suite
+(changé sur l’IPX800 lui-même, par ses scénarios ou sa page) : jamais par le
+temps. Ce qui a été demandé avant une extinction sur le même relais et pas
+encore envoyé est annulé ; un allumage cliqué pendant qu’elle est en cours
+d’envoi est refusé. Un allumage envoyé par l’intégration avant l’extinction
+et resté sans réponse (coupé par l’extinction, par exemple), si l’IPX800
+l’applique quand même dans les 5 s après son départ, n’est pas un changement
+sur l’IPX800 : l’extinction est renvoyée.
 
 ## Commandes
 
