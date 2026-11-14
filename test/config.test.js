@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { INPUTS_POLL_MS } from '../src/constants.js';
+import { readFileSync } from 'node:fs';
+import { LEGACY_POLL_INTERVAL, POLL_MS } from '../src/constants.js';
 import {
   DEFAULTS,
   credentialsOf,
@@ -111,25 +112,79 @@ test('relays Gladys may drive: a range R1-R8 (cce66), with a kind; a wrong range
   assert.equal(parseRelays('R5:light, R1-R8').relays.size, 8);
 });
 
-test('the pace of the inputs: ms, 1000 to 300000; 0 (or empty) = the poll interval; the round takes the faster', () => {
-  assert.equal(normalizeConfig({}).inputsPollMs, undefined);
-  assert.equal(normalizeConfig({ inputs_poll_ms: '' }).inputsPollMs, undefined);
-  assert.equal(normalizeConfig({ inputs_poll_ms: 'abc' }).inputsPollMs, undefined);
-  assert.equal(normalizeConfig({ inputs_poll_ms: 1 }).inputsPollMs, INPUTS_POLL_MS.min);
-  assert.equal(normalizeConfig({ inputs_poll_ms: 0 }).inputsPollMs, undefined, '0: the interval');
-  assert.equal(normalizeConfig({ inputs_poll_ms: '0' }).inputsPollMs, undefined);
-  assert.equal(normalizeConfig({ inputs_poll_ms: -5 }).inputsPollMs, undefined);
-  assert.equal(
-    normalizeConfig({ inputs_poll_ms: 999 }).inputsPollMs,
-    1000,
-    'never faster than 1 s',
-  );
-  assert.equal(normalizeConfig({ inputs_poll_ms: 10 ** 9 }).inputsPollMs, INPUTS_POLL_MS.max);
-  assert.equal(normalizeConfig({ inputs_poll_ms: '1500.4' }).inputsPollMs, 1500);
-  assert.equal(INPUTS_POLL_MS.min, 1000, 'one request a second at most for the small web server');
-  assert.equal(roundInterval(normalizeConfig({})), 10_000);
+test('the read pace: ms, 1000 to 300000; 0 (or empty) = 10 s', () => {
+  const pace = (raw) => normalizeConfig(raw).pollMs;
+  assert.equal(pace({}), POLL_MS.default);
+  assert.equal(POLL_MS.default, 10_000, 'the default of 0.2.x (10 s)');
+  assert.equal(pace({ inputs_poll_ms: '' }), 10_000);
+  assert.equal(pace({ inputs_poll_ms: null }), 10_000);
+  assert.equal(pace({ inputs_poll_ms: 'abc' }), 10_000);
+  assert.equal(pace({ inputs_poll_ms: 0 }), 10_000, '0: the way back');
+  assert.equal(pace({ inputs_poll_ms: '0' }), 10_000);
+  assert.equal(pace({ inputs_poll_ms: -5 }), 10_000);
+  assert.equal(pace({ inputs_poll_ms: 1 }), POLL_MS.min);
+  assert.equal(pace({ inputs_poll_ms: 999 }), 1000, 'never faster than 1 s');
+  assert.equal(pace({ inputs_poll_ms: 1000 }), 1000);
+  assert.equal(pace({ inputs_poll_ms: 2000 }), 2000);
+  assert.equal(pace({ inputs_poll_ms: 300_000 }), 300_000);
+  assert.equal(pace({ inputs_poll_ms: 10 ** 9 }), POLL_MS.max);
+  assert.equal(pace({ inputs_poll_ms: '1500.4' }), 1500);
+  assert.equal(pace({ inputs_poll_ms: Infinity }), 10_000);
+  assert.equal(POLL_MS.min, 1000, 'one request a second at most for the small web server');
+  assert.equal(POLL_MS.max, 300_000);
   assert.equal(roundInterval(normalizeConfig({ inputs_poll_ms: 2000 })), 2000);
-  assert.equal(roundInterval(normalizeConfig({ poll_interval: 5, inputs_poll_ms: 60_000 })), 5000);
+  assert.equal(roundInterval(normalizeConfig({})), 10_000);
+});
+
+test('migration from 0.2.x: inputs_poll_ms set wins, otherwise the seconds of poll_interval', () => {
+  const pace = (raw) => normalizeConfig(raw).pollMs;
+  // cce66 (t/11448 #16): 5 s and 1000 ms.
+  assert.equal(pace({ poll_interval: 5, inputs_poll_ms: 1000 }), 1000);
+  // Set, it wins even when slower than the seconds (the one field the form shows now).
+  assert.equal(pace({ poll_interval: 5, inputs_poll_ms: 60_000 }), 60_000);
+  // Not set (absent, emptied, 0): the seconds kept by Gladys, read as 0.2.x read them.
+  assert.equal(pace({ poll_interval: 30 }), 30_000);
+  assert.equal(pace({ poll_interval: 30, inputs_poll_ms: 0 }), 30_000, '0 meant the seconds too');
+  assert.equal(pace({ poll_interval: 30, inputs_poll_ms: '' }), 30_000);
+  assert.equal(pace({ poll_interval: 30, inputs_poll_ms: null }), 30_000);
+  assert.equal(pace({ poll_interval: 10 }), 10_000, 'the 0.2.x default the form saved');
+  assert.equal(pace({ poll_interval: 300 }), 300_000);
+  assert.equal(pace({ poll_interval: '45' }), 45_000);
+  assert.equal(pace({ poll_interval: 1 }), 5000, 'below 5: 5 s, as 0.2.x read it');
+  assert.equal(pace({ poll_interval: 0 }), 5000, 'as 0.2.x read it');
+  assert.equal(pace({ poll_interval: 10_000 }), 300_000, 'above 300: 300 s, as 0.2.x');
+  assert.equal(pace({ poll_interval: '' }), 10_000);
+  assert.equal(pace({ poll_interval: 'abc' }), 10_000);
+  assert.equal(pace({ poll_interval: 7.6 }), 8000);
+  // Every pace 0.2.x could read stays within the new bounds.
+  for (const seconds of [LEGACY_POLL_INTERVAL.min, LEGACY_POLL_INTERVAL.max]) {
+    const ms = pace({ poll_interval: seconds });
+    assert.ok(ms >= POLL_MS.min && ms <= POLL_MS.max, `${seconds} s`);
+  }
+});
+
+test('migration: the Gladys form of 0.2.2 never saves over the seconds kept from 0.2.x', () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL('../gladys-assistant-integration.json', import.meta.url), 'utf8'),
+  );
+  const schema = manifest.config_schema.filter((f) => f.type !== 'section');
+  assert.ok(!schema.some((f) => f.key === 'poll_interval'), 'one field only');
+  // What 0.2.1 kept (its form saved the default 10, or what the user typed), the field of the
+  // inputs never typed.
+  const stored = { host: '192.168.1.50', poll_interval: 30 };
+  // The front (config-page/index.js, applySchemaDefaults): the stored values of the schema
+  // keys, completed with the declared defaults; the server writes only the keys received.
+  const form = {};
+  for (const field of schema) {
+    const value = stored[field.key] ?? field.default;
+    if (value !== undefined && field.type !== 'secret') form[field.key] = value;
+  }
+  assert.equal(form.inputs_poll_ms, undefined, 'no default filled in');
+  const saved = { ...stored, ...form };
+  assert.equal(normalizeConfig(saved).pollMs, 30_000, 'Save keeps the 30 s');
+  // The user types 2000, then 0 (the way back): 2 s, then the 30 s kept.
+  assert.equal(normalizeConfig({ ...saved, inputs_poll_ms: 2000 }).pollMs, 2000);
+  assert.equal(normalizeConfig({ ...saved, inputs_poll_ms: 0 }).pollMs, 30_000);
 });
 
 test('extensions: ranges by prefix, bounded to 32', () => {
@@ -141,10 +196,9 @@ test('extensions: ranges by prefix, bounded to 32', () => {
 
 test('defaults; a session is the address, port and credentials; the key holds no secret', () => {
   const config = normalizeConfig({});
-  assert.equal(config.pollInterval, DEFAULTS.poll_interval);
+  assert.equal(config.pollMs, 10_000);
+  assert.equal(config.language, DEFAULTS.language);
   assert.equal(config.language, 'fr');
-  assert.equal(normalizeConfig({ poll_interval: 1 }).pollInterval, 5);
-  assert.equal(normalizeConfig({ poll_interval: '' }).pollInterval, 10);
   const a = normalizeConfig({ host: '10.0.0.2', username: 'u', password: 'p1' });
   const b = normalizeConfig({ host: '10.0.0.2', username: 'u', password: 'p1', relays: 'R1' });
   const c = normalizeConfig({ host: '10.0.0.2', username: 'u', password: 'p2' });
@@ -156,7 +210,7 @@ test('defaults; a session is the address, port and credentials; the key holds no
   assert.ok(!a.key.includes('p1') && !a.key.includes('10.0.0.2'));
 });
 
-test('slots: the keys of slot n with _n, the poll interval and language shared', () => {
+test('slots: the keys of slot n with _n, the read pace (and the 0.2.x seconds) and language shared', () => {
   const raw = {
     host: 'a',
     host_2: 'b',
@@ -175,6 +229,8 @@ test('slots: the keys of slot n with _n, the poll interval and language shared',
     inputs_poll_ms: 1500,
     language: undefined,
   });
+  assert.equal(normalizeConfig(slotConfig(raw, 3)).pollMs, 1500);
+  assert.equal(normalizeConfig(slotConfig({ host_2: 'b', poll_interval: 20 }, 2)).pollMs, 20_000);
   assert.equal(slotTyped(raw, 2), true);
   assert.equal(slotTyped(raw, 3), true, 'a password typed makes the slot used');
   assert.equal(slotTyped({}, 3), false);

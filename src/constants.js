@@ -74,15 +74,20 @@ export const ACTIONS = {
   ATTACH: 'attach_devices',
 };
 
-/** The poll interval of the configuration, in seconds. */
-export const POLL_INTERVAL = { min: 5, max: 300, default: 10 };
+/**
+ * The read pace (`inputs_poll_ms`, "Read every (milliseconds)", in ms; empty or 0 = the
+ * default, or the seconds of `poll_interval` kept from before 0.2.2). One round reads the
+ * whole status page (relays, inputs, analog inputs) in one request, one request at a time:
+ * 1 s at least, for the small web server of the IPX800 V3.
+ */
+export const POLL_MS = { min: 1_000, max: 300_000, default: 10_000 };
 
 /**
- * The faster pace of the inputs (`inputs_poll_ms`, in ms; empty = the interval above). One
- * round reads the whole status page (relays, inputs, analog inputs) in one request, one
- * request at a time: 1 s at least, for the small web server of the IPX800 V3.
+ * `poll_interval` (seconds), the field of 0.1.x and 0.2.x merged into `inputs_poll_ms` in
+ * 0.2.2: no longer in the manifest, still read from the configuration Gladys kept, with the
+ * bounds it had then (5 s to 300 s, both within POLL_MS).
  */
-export const INPUTS_POLL_MS = { min: 1_000, max: 300_000 };
+export const LEGACY_POLL_INTERVAL = { min: 5, max: 300, default: 10 };
 
 /**
  * Sizes of the V3: 32 relays and 32 inputs in its answer (its own 8 of each,
@@ -163,7 +168,7 @@ export const TIMINGS = {
   /** A read or a save of /data waited this long at most (a frozen disk holds nothing). */
   storeWait: 1_500,
   /**
-   * Rounds faster than this (inputs_poll_ms): the time of the attempt goes to /data before a
+   * Rounds faster than this (inputs_poll_ms under 5000): the time of the attempt goes to /data before a
    * read at most this often, a restart adds it to the wait (never sooner than the interval),
    * and the state after a round is written only when it changed (no disk write a second).
    */

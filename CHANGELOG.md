@@ -10,6 +10,18 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Changed
+
+- After cce66's feedback (forum t/11448 #16): one field for the read pace,
+  "Read every (milliseconds)" (1000 ms at least, 300000 ms at most, 10 s
+  when empty; `0` goes back), instead of "Read every (seconds)" and "Read
+  the inputs every (milliseconds)", which read the same whole status page.
+  Nothing is lost by the update: the milliseconds typed in 0.2.x stay and
+  are the pace (even when slower than the seconds); when they were empty or
+  0, the seconds typed then are still the pace (`0` goes back to them). One
+  request at a time, the rest after each answer, `/data` spared at a fast
+  pace, the immediate switch-off and the backoff are unchanged.
+
 ## [0.2.1] - 2026-11-10
 
 ### Changed

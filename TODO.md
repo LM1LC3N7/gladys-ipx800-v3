@@ -26,6 +26,8 @@ to date at the end of every milestone.
       / `anselect`; `day` / `time0` wrong on his box, never read). Added:
       `inputs_poll_ms`, relay ranges `R1-R8`, A1-A16, names `IPX800V3-R1`.
       See "Decisions after cce66's feedback". A minor version (new options).
+- [x] **cce66's feedback on 0.2.1** (2026-11-14, t/11448 #16): the two pace
+      fields merged into one (0.2.2), see "Decisions for 0.2.2".
 - [ ] **Review r2**.
 - [ ] **cce66's test** on his IPX800 V3: the questions below; then "never
       tested with a real device" goes (README, docs, manifest; ask Louis).
@@ -127,6 +129,34 @@ everything off" would switch on).
   reverse. A friendly report for his tool, nothing to change in Gladys.
 - Ask him not to list a relay set to pulse mode (a gate, a door strike)
   until question 5 is answered.
+
+## Decisions for 0.2.2 (cce66, t/11448 #16, 2026-11-14)
+
+- **One read pace**: cce66 found "Read every (seconds)" (`poll_interval`, 5 s
+  at least) not enough and a duplicate of `inputs_poll_ms`, which reads the
+  whole page already; he had 5 s and 1000 ms. Merged into **`inputs_poll_ms`**
+  (key kept: the values typed in 0.2.x stay in the form), relabelled "Read
+  every (milliseconds)" / "Lecture toutes les (millisecondes)", 1000 to
+  300000 ms (1-999 read as 1000), 10 s when not set. `poll_interval` is out
+  of the manifest; Gladys keeps its stored value (`getIntegrationConfig`
+  returns every variable of the service, the front shows and saves only the
+  schema keys), so it is still read.
+- **Migration** (`pollMsOf` in src/config.js): `inputs_poll_ms` above 0 wins,
+  even when slower than the seconds (it is the field the form shows);
+  otherwise (absent, empty, 0, not a number: 0 meant "the interval in
+  seconds" in 0.2.x) the seconds of `poll_interval`, read exactly as 0.2.x
+  read them (5 to 300, a number below 5 is 5); otherwise 10 s. Every pace of
+  0.2.x is within the new bounds. So "type 0" still goes back: to 10 s, or
+  to the seconds kept from 0.2.x (the form cannot clear them; typing the ms
+  shows the pace).
+- **No manifest `default`** on `inputs_poll_ms`: the front fills a declared
+  default into an empty field and saves it (`applySchemaDefaults`), which
+  would replace the seconds kept from 0.2.x by 10 s at the first Save (test
+  in test/config.test.js).
+- Unchanged: one request at a time, the rest after each answer at a fast
+  pace, `/data` spared under 5 s (`attemptSaveEvery`), the immediate
+  switch-off, the backoff and pauses (all from `roundInterval`, now
+  `config.pollMs`).
 
 ## Decisions after cce66's feedback (2026-11-10)
 
@@ -270,10 +300,10 @@ everything off" would switch on).
   within a minute) binds them to the address read. Known limit: another V3
   at the same address and port is not told apart (in the docs).
 - **Several IPX800 V3**: up to 3 slots (`host_n`, `username_n`,
-  `password_n`, `relays_n`, `extensions_n`), port in the address; poll
-  interval and language shared; one state publisher for the 300 states a
+  `password_n`, `relays_n`, `extensions_n`), port in the address; read
+  pace and language shared; one state publisher for the 300 states a
   minute.
-- **Pace**: one round per interval (10 s, 5 to 300; `inputs_poll_ms` faster, see above), the time of the attempt
+- **Pace**: one round per interval (10 s; since 0.2.2 `inputs_poll_ms` alone, 1000 to 300000 ms, see above), the time of the attempt
   in `/data` before the read; failures 10 s, 30 s, 1, 2, 5 min, at least a
   minute on 429 / 503, the pause in `/data`.
 - **Units**: °C and % only (core list). Category `lighting` only.

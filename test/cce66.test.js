@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { INPUTS_POLL_MS, TIMINGS } from '../src/constants.js';
+import { POLL_MS, TIMINGS } from '../src/constants.js';
 import { isPendingAnswer, parseV3, parseXml, v3Codes } from '../src/ipx/model.js';
 import { fakeIpx } from './helpers/fakeIpx.js';
 import { CONFIG, F, SECOND, created, setup } from './helpers/app.js';
@@ -122,7 +122,7 @@ const coreSave = (previous, form) => {
   return { ...previous, ...sent };
 };
 
-test('inputs_poll_ms: one round a second, never sooner, one request at a time; 0 goes back to the interval', async () => {
+test('inputs_poll_ms: one round a second, never sooner, one request at a time; 0 goes back to 10 s', async () => {
   const world = captured();
   const config = { ...CONFIG, inputs_poll_ms: 1000 };
   const { app, gladys, start, wait } = await setup({ world, config });
@@ -133,7 +133,7 @@ test('inputs_poll_ms: one round a second, never sooner, one request at a time; 0
   assert.ok(reads.length >= 10 && reads.length <= 11, `${reads.length} rounds in 10 s`);
   const gaps = reads.slice(1).map((r, i) => r.at - reads[i].at);
   assert.ok(
-    gaps.every((g) => g >= INPUTS_POLL_MS.min - 1),
+    gaps.every((g) => g >= POLL_MS.min - 1),
     `never sooner than 1 s: ${gaps.join(', ')}`,
   );
   assert.equal(world.peak, 1, 'one request to the IPX at a time');
@@ -169,7 +169,7 @@ test('inputs_poll_ms: one round a second, never sooner, one request at a time; 0
   app.stop();
 });
 
-test('inputs_poll_ms below 1000 ms is read as 1000 ms; above the poll interval, the interval wins', async () => {
+test('inputs_poll_ms below 1000 ms is read as 1000 ms; set, it wins over the 0.2.x seconds', async () => {
   const fast = await setup({ world: captured(), config: { ...CONFIG, inputs_poll_ms: 50 } });
   await fast.start();
   const before = rounds(fast.world).length;
@@ -179,13 +179,52 @@ test('inputs_poll_ms below 1000 ms is read as 1000 ms; above the poll interval, 
   fast.app.stop();
   const slow = await setup({
     world: captured(),
-    config: { ...CONFIG, poll_interval: 5, inputs_poll_ms: 60_000 },
+    config: { ...CONFIG, poll_interval: 5, inputs_poll_ms: 20_000 },
   });
   await slow.start();
-  const at = rounds(slow.world).length;
-  await slow.wait(20 * SECOND);
-  assert.equal(rounds(slow.world).length - at, 4, 'every 5 s (the poll interval)');
+  await slow.wait(65 * SECOND);
+  assert.deepEqual(gapsOf(slow.world), [20_000, 20_000, 20_000], 'every 20 s (the field shown)');
   slow.app.stop();
+});
+
+/** The time between the rounds (status.xml: globalstatus.xml is a 404), to 0.1 s. */
+const gapsOf = (world) => {
+  const at = world.requests.filter((r) => r.path === '/status.xml').map((r) => r.at);
+  return at
+    .slice(1)
+    .map((t, i) => t - at[i])
+    .map((g) => Math.round(g / 100) * 100);
+};
+
+test('migration from 0.2.x: without inputs_poll_ms (absent or 0), the seconds kept are the pace', async () => {
+  for (const extra of [{}, { inputs_poll_ms: 0 }, { inputs_poll_ms: '' }]) {
+    const label = JSON.stringify(extra);
+    const ctx = await setup({
+      world: captured(),
+      config: { ...CONFIG, poll_interval: 30, ...extra },
+    });
+    await ctx.start();
+    await ctx.wait(100 * SECOND);
+    assert.deepEqual(gapsOf(ctx.world), [30_000, 30_000, 30_000], `${label}: every 30 s`);
+    ctx.app.stop();
+  }
+  // Neither (a new installation): 10 s.
+  const fresh = await setup({ world: captured(), config: { ...CONFIG } });
+  await fresh.start();
+  await fresh.wait(35 * SECOND);
+  assert.deepEqual(gapsOf(fresh.world), [10_000, 10_000, 10_000], 'every 10 s');
+  fresh.app.stop();
+  // cce66's 0.2.1 settings (5 s, 1000 ms): one round a second.
+  const cce = await setup({
+    world: captured(),
+    config: { ...CONFIG, poll_interval: 5, inputs_poll_ms: 1000 },
+  });
+  await cce.start();
+  await cce.wait(5 * SECOND);
+  const gaps = gapsOf(cce.world);
+  assert.ok(gaps.length >= 3 && gaps.every((g) => g === 1000), `cce66: ${gaps.join(', ')}`);
+  assert.equal(cce.world.peak, 1, 'one request at a time');
+  cce.app.stop();
 });
 
 test('fast rounds spare /data: nothing new, no write a second; a restart still waits the interval', async () => {
@@ -210,7 +249,7 @@ test('fast rounds spare /data: nothing new, no write a second; a restart still w
   const next = rounds(again.world)[0];
   assert.ok(next, 'and reads again');
   assert.ok(
-    next.at - last >= INPUTS_POLL_MS.min,
+    next.at - last >= POLL_MS.min,
     `a restart never reads sooner than the interval after the last read (${next.at - last} ms)`,
   );
   again.app.stop();
@@ -336,7 +375,7 @@ test('restart 9.5 s into a 1 s pace (attempt written 4.5 s before): the first re
   await again.start();
   await again.wait(TIMINGS.attemptSaveEvery + 2 * SECOND);
   const next = rounds(again.world)[0];
-  assert.ok(next && next.at - last >= INPUTS_POLL_MS.min, `${next?.at - last} ms`);
+  assert.ok(next && next.at - last >= POLL_MS.min, `${next?.at - last} ms`);
   again.app.stop();
 });
 

@@ -12,7 +12,7 @@ import { IpxHub } from '../src/hub.js';
 import { registerHandlers } from '../src/handlers.js';
 import { parseExternalId, slotOf } from '../src/devices.js';
 import { slotConfig, slotTyped } from '../src/config.js';
-import { POLL_INTERVAL } from '../src/constants.js';
+import { POLL_MS } from '../src/constants.js';
 import { memoryStore } from '../src/store.js';
 import { measurePeriod, realClock, spyOn, testClock } from './kit/index.mjs';
 import { PASSWORD, USER, fakeIpx } from './helpers/fakeIpx.js';
@@ -240,7 +240,7 @@ test('real clock x20: two IPX800 V3 over HTTP, each read at the interval, each c
   const spy1 = spyOn(hub.controllers.get(1), 'readRound', clock);
   const spy2 = spyOn(hub.controllers.get(2), 'readRound', clock);
   await hub.onConnected(() => gladys.getConfig());
-  const period = POLL_INTERVAL.default * 1000;
+  const period = POLL_MS.default;
   await Promise.all([
     measurePeriod(spy1, { count: 3, period }),
     measurePeriod(spy2, { count: 3, period }),

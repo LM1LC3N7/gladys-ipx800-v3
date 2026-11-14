@@ -9,11 +9,10 @@
 
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
-import { API, INPUTS_POLL_MS, LIMITS_V3, POLL_INTERVAL, RELAY_KINDS } from './constants.js';
+import { API, LEGACY_POLL_INTERVAL, LIMITS_V3, POLL_MS, RELAY_KINDS } from './constants.js';
 
 /** Defaults, mirrored by the manifest (checked by test/manifest.test.js). */
 export const DEFAULTS = {
-  poll_interval: POLL_INTERVAL.default,
   language: 'fr',
 };
 
@@ -188,6 +187,25 @@ const number = (value) =>
 const clamp = (value, { min, max }, fallback) =>
   Number.isFinite(value) ? Math.round(Math.max(min, Math.min(max, value))) : fallback;
 
+/**
+ * The read pace in ms. 0.2.2 merged the two fields of 0.2.x ("Read every (seconds)",
+ * `poll_interval`, 5 to 300; "Read the inputs every (milliseconds)", `inputs_poll_ms`) into
+ * the second one, renamed "Read every (milliseconds)": `inputs_poll_ms` when set (above 0;
+ * 1-999 read as 1000), otherwise the seconds of `poll_interval` that Gladys still keeps from
+ * an earlier version (bounded as then), otherwise 10 s. 0 (or less, empty, not a number) is
+ * "not set": the Gladys form never sends an emptied number field, so 0 is the way back, as
+ * in 0.2.x (where 0 meant the interval in seconds too). No manifest `default`: the form
+ * would fill it in and save it over a `poll_interval` kept from before.
+ */
+function pollMsOf(raw) {
+  const ms = number(raw?.inputs_poll_ms);
+  if (ms > 0) return clamp(ms, POLL_MS, POLL_MS.default);
+  // As 0.2.x read it (a number below 5 was 5 s), so that an update keeps the pace it had.
+  return (
+    clamp(number(raw?.poll_interval), LEGACY_POLL_INTERVAL, LEGACY_POLL_INTERVAL.default) * 1000
+  );
+}
+
 export function normalizeConfig(raw = {}) {
   const address = parseAddress(raw?.host);
   const user = parseUser(raw?.username);
@@ -218,13 +236,7 @@ export function normalizeConfig(raw = {}) {
     extensionErrors: extensions.errors,
     // Set by src/hub.js: the address of an earlier slot (one IPX800, one lane of requests).
     duplicateOf: Number.isInteger(raw?.duplicate_of) ? raw.duplicate_of : undefined,
-    pollInterval: clamp(number(raw?.poll_interval), POLL_INTERVAL, DEFAULTS.poll_interval),
-    // The faster pace of the inputs, in ms; undefined (0 or less, empty, not a number) =
-    // pollInterval: the Gladys form never sends an emptied number field, so 0 is the way back.
-    inputsPollMs:
-      number(raw?.inputs_poll_ms) > 0
-        ? clamp(number(raw?.inputs_poll_ms), INPUTS_POLL_MS, undefined)
-        : undefined,
+    pollMs: pollMsOf(raw),
     language: LANGUAGES.includes(language) ? language : DEFAULTS.language,
   };
 }
@@ -233,8 +245,8 @@ export function normalizeConfig(raw = {}) {
  * Up to SLOTS IPX800 V3 in one integration (Gladys runs one instance of it).
  * The first one has the manifest keys `host`, `username`, `password`,
  * `relays`, `extensions`; the n-th one has them with `_<n>` (`host_2`...).
- * The port goes in the address (`192.168.1.51:8080`). The poll intervals and
- * the language are shared.
+ * The port goes in the address (`192.168.1.51:8080`). The read pace (and the
+ * `poll_interval` kept from before 0.2.2) and the language are shared.
  */
 export const SLOTS = 3;
 
@@ -297,6 +309,5 @@ export const sessionKey = (config) =>
     config.duplicateOf,
   ]);
 
-/** The time between two rounds (ms): the poll interval, or the pace of the inputs when faster. */
-export const roundInterval = (config) =>
-  Math.min(config.pollInterval * 1000, config.inputsPollMs ?? Infinity);
+/** The time between two rounds (ms): the read pace. */
+export const roundInterval = (config) => config.pollMs;

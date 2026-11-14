@@ -24,40 +24,58 @@
     "to": ""
   },
   {
-    "name": "inputs pace: 100 ms allowed",
+    "name": "read pace: 100 ms allowed",
     "file": "src/constants.js",
-    "from": "export const INPUTS_POLL_MS = { min: 1_000,",
-    "to": "export const INPUTS_POLL_MS = { min: 100,"
+    "from": "export const POLL_MS = { min: 1_000,",
+    "to": "export const POLL_MS = { min: 100,"
   },
   {
-    "name": "inputs pace: empty = 1 s",
+    "name": "read pace: empty = 1 s",
     "file": "src/config.js",
-    "from": "        : undefined,\n",
-    "to": "        : 1000,\n"
+    "from": "    clamp(number(raw?.poll_interval), LEGACY_POLL_INTERVAL, LEGACY_POLL_INTERVAL.default) * 1000\n",
+    "to": "    1000\n"
   },
   {
-    "name": "inputs pace: ignored",
+    "name": "read pace: inputs_poll_ms ignored",
     "file": "src/config.js",
-    "from": "Math.min(config.pollInterval * 1000, config.inputsPollMs ?? Infinity)",
-    "to": "config.pollInterval * 1000"
+    "from": "  if (ms > 0) return clamp(ms, POLL_MS, POLL_MS.default);\n",
+    "to": "\n"
   },
   {
-    "name": "inputs pace: the slower wins",
+    "name": "migration: the faster of the two (0.2.x) instead of inputs_poll_ms",
     "file": "src/config.js",
-    "from": "Math.min(config.pollInterval * 1000, config.inputsPollMs ?? Infinity)",
-    "to": "Math.max(config.pollInterval * 1000, config.inputsPollMs ?? 0)"
+    "from": "  if (ms > 0) return clamp(ms, POLL_MS, POLL_MS.default);\n",
+    "to": "  if (ms > 0 && !(number(raw?.poll_interval) * 1000 < ms)) return clamp(ms, POLL_MS, POLL_MS.default);\n"
   },
   {
-    "name": "inputs pace: not shared with slots",
+    "name": "read pace: not shared with slots",
     "file": "src/config.js",
     "from": "'poll_interval', 'inputs_poll_ms', 'language'",
     "to": "'poll_interval', 'language'"
   },
   {
-    "name": "inputs pace: change not rescheduled",
+    "name": "migration: the 0.2.x seconds not shared with slots",
+    "file": "src/config.js",
+    "from": "'poll_interval', 'inputs_poll_ms', 'language'",
+    "to": "'inputs_poll_ms', 'language'"
+  },
+  {
+    "name": "migration: the 0.2.x seconds ignored",
+    "file": "src/config.js",
+    "from": "    clamp(number(raw?.poll_interval), LEGACY_POLL_INTERVAL, LEGACY_POLL_INTERVAL.default) * 1000\n",
+    "to": "    POLL_MS.default\n"
+  },
+  {
+    "name": "migration: the 0.2.x seconds read as ms",
+    "file": "src/config.js",
+    "from": "LEGACY_POLL_INTERVAL.default) * 1000\n",
+    "to": "LEGACY_POLL_INTERVAL.default)\n"
+  },
+  {
+    "name": "read pace: change not rescheduled",
     "file": "src/app.js",
     "from": "if (roundInterval(next) !== roundInterval(previous)) {",
-    "to": "if (next.pollInterval !== previous.pollInterval) {"
+    "to": "if (next.host !== previous.host) {"
   },
   {
     "name": "fast rounds: attempt saved every round",
@@ -152,8 +170,8 @@
   {
     "name": "I1: 0 read as 1000",
     "file": "src/config.js",
-    "from": "number(raw?.inputs_poll_ms) > 0",
-    "to": "number(raw?.inputs_poll_ms) >= 0"
+    "from": "  if (ms > 0) return clamp(ms, POLL_MS, POLL_MS.default);",
+    "to": "  if (ms >= 0) return clamp(ms, POLL_MS, POLL_MS.default);"
   },
   {
     "name": "m1: no rest after a slow answer",

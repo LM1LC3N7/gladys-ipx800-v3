@@ -10,13 +10,13 @@ import assert from 'node:assert/strict';
 import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
 import { IpxApp } from '../src/app.js';
 import { registerHandlers } from '../src/handlers.js';
-import { POLL_INTERVAL } from '../src/constants.js';
+import { POLL_MS } from '../src/constants.js';
 import { memoryStore } from '../src/store.js';
 import { measurePeriod, realClock, spyOn } from './kit/index.mjs';
 import { httpIpx } from './helpers/httpIpx.js';
 
 const SPEED = 20;
-const INTERVAL = POLL_INTERVAL.default * 1000;
+const INTERVAL = POLL_MS.default;
 
 test('real clock x20: one round per interval (measured), a command confirmed', async (t) => {
   const ipx = await httpIpx({ latencyMs: 5 });

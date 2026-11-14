@@ -71,14 +71,24 @@ autres types (brut, tension, lumière, X-400 CT, pH, ORP) ne sont pas dans
 cette version : l’état nomme les entrées concernées. Une valeur brute de 0
 (rien de branché) ou de 1023 (entrée en l’air) n’est pas une mesure.
 
-L’IPX800 est lu toutes les 10 secondes par défaut (5 s au moins), par sa
-page `globalstatus.xml`, ou `status.xml` quand elle manque. Pour voir plus
-vite le changement d’une entrée, « Lecture des entrées toutes les
-(millisecondes) » le lit plus souvent : 1000 ms (1 s) au moins (moins est
-lu comme 1000), car son petit serveur web répond à une requête à la fois.
-Pour revenir à l’intervalle ci-dessus, saisissez `0` (Gladys garde la
-dernière valeur d’un champ numérique que vous videz). Chaque lecture est une
-requête pour toute la page (relais et entrées analogiques compris), la
+L’IPX800 est lu par sa page `globalstatus.xml`, ou `status.xml` quand
+elle manque, au rythme de « Lecture toutes les (millisecondes) » :
+10000 ms (10 s) si le champ est vide, 1000 ms (1 s) au moins (moins est lu
+comme 1000), car son petit serveur web répond à une requête à la fois, et
+300000 ms (5 min) au plus. Baissez-le pour voir plus vite le changement
+d’une entrée. Pour revenir à 10 s, saisissez `0` (Gladys garde la dernière
+valeur d’un champ numérique que vous videz).
+
+Jusqu’à la version 0.2.1, il y avait deux champs, « Lecture toutes les
+(secondes) » et « Lecture des entrées toutes les (millisecondes) » ; depuis
+la 0.2.2, il n’y en a plus qu’un, le second renommé, et la mise à jour ne
+fait rien perdre : les millisecondes saisies restent (et font le rythme,
+même plus lentes que les secondes), et quand elles étaient vides ou à 0,
+les secondes saisies alors font toujours le rythme (30 s reste 30 s, `0` y
+revient). Pour voir ce rythme dans le champ, saisissez-le en millisecondes.
+
+Chaque lecture est une
+requête pour toute la page (relais, entrées numériques et analogiques), la
 suivante seulement une fois la précédente répondue et après un repos au
 moins aussi long que cette réponse (250 ms au moins) : un IPX800 lent est lu
 moins vite, les lectures périodiques n’occupent jamais plus de la moitié du
@@ -96,7 +106,7 @@ Gardez le premier dans les champs du haut, et mettez l’autre dans
 **« IPX800 n°2 »** (adresse avec `:port` si besoin, utilisateur et mot de
 passe, ses relais pilotables, ses extensions), un troisième dans « IPX800
 n°3 ». Chacun a ses propres appareils dans Découverte (`IPX800V3-2-R1`), sa liste de relais pilotables et son état sur sa ligne.
-Les intervalles de lecture et la langue sont communs.
+Le rythme de lecture et la langue sont communs.
 
 **Ne changez pas l’adresse d’un emplacement pour essayer un autre IPX800** :
 les appareils déjà créés restent avec leur emplacement. Ajoutez l’autre en

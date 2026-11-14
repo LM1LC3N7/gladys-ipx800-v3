@@ -56,8 +56,10 @@ credentials, a queue or a read, it cuts the request in flight and is kept in
 /data and sent again; one request to the IPX at a time; absolute writes only
 (`preset.htm`, never the `leds.cgi` toggle); the password (Basic header of
 every request) is never logged, nor put in an error, a status or /data;
-success only after a read back; the inputs pace (`inputs_poll_ms`) is 1 s at
-least, one request at a time, and spares `/data` (TIMINGS.attemptSaveEvery).
+success only after a read back; the read pace (`inputs_poll_ms`, "Read every
+(milliseconds)", the one pace field since 0.2.2; `poll_interval` seconds of
+0.2.x still read when it is not set) is 1 s at least, one request at a time,
+and spares `/data` (TIMINGS.attemptSaveEvery).
 
 ## Rules
 

@@ -127,31 +127,15 @@
       }
     },
     {
-      "key": "poll_interval",
-      "type": "number",
-      "label": {
-        "en": "Read every (seconds)",
-        "fr": "Lecture toutes les (secondes)"
-      },
-      "description": {
-        "en": "How often the IPX800 V3 is read: 10 s by default, 5 s at least.",
-        "fr": "Fréquence de lecture de l’IPX800 V3 : 10 s par défaut, 5 s au moins."
-      },
-      "required": false,
-      "default": 10,
-      "min": 5,
-      "max": 300
-    },
-    {
       "key": "inputs_poll_ms",
       "type": "number",
       "label": {
-        "en": "Read the inputs every (milliseconds)",
-        "fr": "Lecture des entrées toutes les (millisecondes)"
+        "en": "Read every (milliseconds)",
+        "fr": "Lecture toutes les (millisecondes)"
       },
       "description": {
-        "en": "Optional, to see an input change sooner: 1000 ms (1 s) at least (less is read as 1000). 0: the interval above (Gladys keeps a number field you empty: type 0 to go back). The whole status page of the IPX800 V3 (relays and analog inputs too) is read in one request at this pace, one request at a time, with a rest after each answer, so that its small web server keeps up.",
-        "fr": "Facultatif, pour voir plus vite le changement d’une entrée : 1000 ms (1 s) au moins (moins est lu comme 1000). 0 : l’intervalle ci-dessus (Gladys garde un champ numérique que vous videz : saisissez 0 pour revenir). Toute la page d’état de l’IPX800 V3 (relais et entrées analogiques compris) est lue en une requête à ce rythme, une requête à la fois, avec un repos après chaque réponse, pour que son petit serveur web suive."
+        "en": "How often the IPX800 V3 is read: 1000 ms (1 s) at least (less is read as 1000), 300000 ms (5 min) at most. Empty or 0: 10000 ms (10 s), or the interval in seconds set before version 0.2.2 if there was one (Gladys keeps a number field you empty: type 0 to go back). Each read is one request for the whole status page (relays, digital and analog inputs), one request at a time, with a rest after each answer, so that its small web server keeps up.",
+        "fr": "Fréquence de lecture de l’IPX800 V3 : 1000 ms (1 s) au moins (moins est lu comme 1000), 300000 ms (5 min) au plus. Vide ou 0 : 10000 ms (10 s), ou l’intervalle en secondes réglé avant la version 0.2.2 s’il y en avait un (Gladys garde un champ numérique que vous videz : saisissez 0 pour revenir). Chaque lecture est une requête pour toute la page d’état (relais, entrées numériques et analogiques), une requête à la fois, avec un repos après chaque réponse, pour que son petit serveur web suive."
       },
       "required": false,
       "min": 0,

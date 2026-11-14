@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { DEFAULTS, LANGUAGES } from '../src/config.js';
-import { ACTIONS, INPUTS_POLL_MS, POLL_INTERVAL } from '../src/constants.js';
+import { ACTIONS, POLL_MS } from '../src/constants.js';
 
 /** The rule of the core for supported_options, when its clone is there (dev VM). */
 const CORE_NORMALIZE = '/home/claude/code/Gladys/server/utils/normalizeSupportedOptions.js';
@@ -122,16 +122,25 @@ test('the configuration matches the code; the password a secret without default'
   assert.equal(fields.host.required, true);
   assert.match(fields.relays.description.en, /never list a pump/);
   assert.match(fields.relays.description.fr, /jamais une pompe/);
-  assert.deepEqual(
-    [fields.poll_interval.min, fields.poll_interval.max, fields.poll_interval.default],
-    [POLL_INTERVAL.min, POLL_INTERVAL.max, POLL_INTERVAL.default],
-  );
+  // 0.2.2: one read pace, in ms (the key of 0.2.0 kept: the values typed stay).
+  assert.equal(fields.poll_interval, undefined, 'merged into inputs_poll_ms in 0.2.2');
   assert.deepEqual(
     [fields.inputs_poll_ms.min, fields.inputs_poll_ms.max, fields.inputs_poll_ms.default],
-    [0, INPUTS_POLL_MS.max, undefined],
-    '0 (and empty by default): the poll interval',
+    [0, POLL_MS.max, undefined],
+    '0 and empty: 10 s or the 0.2.x seconds; no default (the form would save it over them)',
   );
+  assert.equal(fields.inputs_poll_ms.type, 'number');
   assert.equal(fields.inputs_poll_ms.required, false);
+  assert.deepEqual(fields.inputs_poll_ms.label, {
+    en: 'Read every (milliseconds)',
+    fr: 'Lecture toutes les (millisecondes)',
+  });
+  assert.match(fields.inputs_poll_ms.description.en, /1000 ms/);
+  assert.match(fields.inputs_poll_ms.description.en, /10000 ms \(10 s\)/);
+  assert.match(fields.inputs_poll_ms.description.en, /type 0/);
+  assert.match(fields.inputs_poll_ms.description.fr, /1000 ms/);
+  assert.match(fields.inputs_poll_ms.description.fr, /10000 ms \(10 s\)/);
+  assert.match(fields.inputs_poll_ms.description.fr, /saisissez 0/);
   for (const key of ['relays', 'relays_2', 'relays_3']) {
     assert.match(fields[key].description.en, /R1-R8/, key);
     assert.match(fields[key].description.fr, /R1-R8/, key);
@@ -212,7 +221,10 @@ test('the slots of the other IPX800: every key of slotConfig in the manifest, th
   const fields = Object.fromEntries(manifest.config_schema.map((f) => [f.key, f]));
   for (let slot = 2; slot <= SLOTS; slot += 1) {
     const raw = Object.fromEntries(Object.keys(fields).map((key) => [key, key]));
+    // poll_interval: no longer in the manifest (0.2.2), still shared when Gladys kept it.
+    raw.poll_interval = 'poll_interval';
     for (const [name, from] of Object.entries(slotConfig(raw, slot))) {
+      if (name === 'poll_interval') continue;
       assert.ok(fields[from], `${name} of slot ${slot} (${from}) not in the manifest`);
     }
     assert.equal(fields[`password_${slot}`].type, 'secret');

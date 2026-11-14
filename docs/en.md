@@ -68,13 +68,23 @@ voltage, light, X-400 CT, pH, ORP) are not in this version: the status names
 the inputs concerned. A raw value of 0 (nothing wired) or 1023 (open input)
 is no measurement.
 
-The IPX800 is read every 10 seconds by default (5 s at least), through its
-page `globalstatus.xml`, or `status.xml` when that one is missing. To see an
-input change sooner, "Read the inputs every (milliseconds)" reads it faster:
-1000 ms (1 s) at least (less is read as 1000), as its small web server
-answers one request at a time. To go back to the interval above, type `0`
-(Gladys keeps the last value of a number field you empty). Each read is one
-request for the whole page (relays and analog inputs too), the next one only
+The IPX800 is read through its page `globalstatus.xml`, or `status.xml`
+when that one is missing, at the pace of "Read every (milliseconds)":
+10000 ms (10 s) when the field is empty, 1000 ms (1 s) at least (less is
+read as 1000), as its small web server answers one request at a time, and
+300000 ms (5 min) at most. Lower it to see an input change sooner. To go
+back to 10 s, type `0` (Gladys keeps the last value of a number field you
+empty).
+
+Up to version 0.2.1 there were two fields, "Read every (seconds)" and "Read
+the inputs every (milliseconds)"; since 0.2.2 there is one, the second one
+renamed, and nothing is lost by the update: the milliseconds typed stay
+(and are the pace, even when slower than the seconds), and when they were
+empty or 0 the seconds typed then are still the pace (30 s stays 30 s, `0`
+goes back to them). To see that pace in the field, type it in milliseconds.
+
+Each read is one
+request for the whole page (relays, digital and analog inputs), the next one only
 once the previous one is answered and after a rest at least as long as that
 answer took (250 ms at least): a slow IPX800 is read more slowly, the periodic
 reads never take more than half of the time (the read backs of commands come
@@ -91,7 +101,7 @@ Keep the first one in the fields at the top, and put the other one in
 **"IPX800 #2"** (address with `:port` if needed, user and password, its
 relays Gladys may drive, its extensions), a third one in "IPX800 #3". Each
 has its own devices in Discover (`IPX800V3-2-R1`), its own list
-of relays and its own line in the status. The read intervals and the
+of relays and its own line in the status. The read pace and the
 language are shared.
 
 **Do not change the address of a slot to try another IPX800**: the devices

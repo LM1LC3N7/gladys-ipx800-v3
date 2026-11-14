@@ -832,7 +832,7 @@ export class IpxApp {
     return roundInterval(this.config);
   }
 
-  /** Rounds faster than the poll interval allows (inputs_poll_ms): /data spared. */
+  /** Rounds under attemptSaveEvery (inputs_poll_ms under 5000): /data spared. */
   get fast() {
     return this.interval < TIMINGS.attemptSaveEvery;
   }
